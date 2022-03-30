@@ -12,6 +12,7 @@ option(SIMPLE_GPU_EDGE "Edge-based GPU kernel" OFF)
 option(_CUGRAPH "use cuGraph" OFF)
 option(_INHOUSE_CUGRAPH "use inhouse cuGraph" OFF)
 option(_DONGARRA "use dongarra" OFF)
+option(DIRECTED "Treat graphs as directed" OFF)
 
 if (NOT ${_GPU})
 set(SIMPLE_GPU OFF)

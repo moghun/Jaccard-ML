@@ -42,7 +42,6 @@
 
 #define NUM_THREADS  256
 #define NUM_BLOCKS  1024
-#define DIRECTED false
 
 using namespace std;
 
