@@ -1,0 +1,7 @@
+#cmakedefine _CPU
+#cmakedefine _GPU
+#cmakedefine _CUGRAPH
+#cmakedefine _INHOUSE_CUGRAPH
+#cmakedefine SIMPLE_GPU
+#cmakedefine SIMPLE_GPU_EDGE
+#cmakedefine _DONGARRA
