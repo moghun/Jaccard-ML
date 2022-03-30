@@ -6,3 +6,4 @@
 #cmakedefine SIMPLE_GPU_EDGE
 #cmakedefine _DONGARRA
 #cmakedefine01 DIRECTED
+#cmakedefine BINNING

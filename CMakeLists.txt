@@ -13,6 +13,7 @@ option(_CUGRAPH "use cuGraph" OFF)
 option(_INHOUSE_CUGRAPH "use inhouse cuGraph" OFF)
 option(_DONGARRA "use dongarra" OFF)
 option(DIRECTED "Treat graphs as directed" OFF)
+option(BINNING "Run binning experiment" OFF)
 
 if (NOT ${_GPU})
 set(SIMPLE_GPU OFF)

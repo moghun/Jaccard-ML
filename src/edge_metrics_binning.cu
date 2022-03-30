@@ -575,7 +575,7 @@ vector<tuple<string, pair<unsigned long long, unsigned long long>, double>> binn
 // SEP: A seperating function - that takes a vertex ID and returns a class for the vertex
 // A list of functions that will be used with each class that SEP creates
 template <bool directed, typename EN, typename VID, typename E>
-vector<tuple<string, pair<unsigned long long, unsigned long long>, double>> binning_based_jaccard(
+vector<tuple<string, pair<unsigned long long, unsigned long long>, double, nlohmann::json>> binning_based_jaccard(
   // GPU variables
   VID * is_d, EN* xadj_d, VID* adj_d, EN * tadj_d, EN * xadj_start_d, E* d_jac,
   // CPU variables
@@ -585,21 +585,21 @@ vector<tuple<string, pair<unsigned long long, unsigned long long>, double>> binn
   // splitter 
   SEP_FUNC<EN, VID> sep_f, vector<EN> ranges, 
   // jaccard kernel drivers
-  vector<tuple<string, JAC_FUNC<directed, EN, VID, E>, dim3, dim3, VID>> jaccard_kernels){
+  vector<tuple<string,JAC_FUNC<directed, EN, VID, E>, dim3, dim3, VID, nlohmann::json>> jaccard_kernels){
   if (jaccard_kernels.size() == 0) throw "PASSED 0 KERNELS";
   int num_bins = jaccard_kernels.size();
   vector<EN *> bins(num_bins);
   for (int  i =0; i<num_bins; i++) bins[i] = new EN[m];
   vector<EN *> bins_d(num_bins);
   vector<pair<unsigned long long, unsigned long long>> bin_sizes(num_bins, make_pair(0,0));
-  vector<tuple<string, pair<unsigned long long, unsigned long long>, double>> timings;
+  vector<tuple<string, pair<unsigned long long, unsigned long long>, double, nlohmann::json>> timings;
   // split the vertices into their respective bins
   double start, end;
 
   start = omp_get_wtime();
   sep_f(is, xadj, adj, tadj, xadj_start, n, bins, bin_sizes, ranges);
   end = omp_get_wtime();
-  timings.push_back(make_tuple("Binning", make_pair(0,0), end-start));
+  timings.push_back(make_tuple("Binning", make_pair(0,0), end-start, nlohmann::json()));
 
   start = omp_get_wtime();
   for (int i =0; i < num_bins; i++){
@@ -607,19 +607,19 @@ vector<tuple<string, pair<unsigned long long, unsigned long long>, double>> binn
     gpuErrchk( cudaMemcpy(bins_d[i], bins[i], sizeof(EN) * bin_sizes[i].first , cudaMemcpyHostToDevice) );
   }
   end = omp_get_wtime();
-  timings.push_back(make_tuple("Bin alloc/copy", make_pair(0,0), end-start));
+  timings.push_back(make_tuple("Bin alloc/copy", make_pair(0,0), end-start, nlohmann::json()));
 
   double time;
   for (int i =0; i < num_bins; i++){
     EN lower_limit = (i == 0) ? 0: ranges[i-1]; // the edge count after which to ignore an edge (don't calculate its jaccard)
     EN upper_limit = (i < num_bins-1) ? ranges[i] : EN(0xffffffffffffffff); // the edge count after which to ignore an edge (don't calculate its jaccard)
     time = get<1>(jaccard_kernels[i])(is_d, xadj_d, adj_d, tadj_d, xadj_start_d, n, d_jac, bins_d[i], bin_sizes[i].first, get<4>(jaccard_kernels[i]), get<2>(jaccard_kernels[i]), get<3>(jaccard_kernels[i]), lower_limit, upper_limit);
-    timings.push_back(make_tuple(get<0>(jaccard_kernels[i]), bin_sizes[i], time));
+    timings.push_back(make_tuple(get<0>(jaccard_kernels[i]), bin_sizes[i], time, get<5>(jaccard_kernels[i])));
   }
   start = omp_get_wtime();
   gpuErrchk( cudaMemcpy(h_jac, d_jac, sizeof(E) * m , cudaMemcpyDeviceToHost) );
   end = omp_get_wtime();
-  timings.push_back(make_tuple("Copy back", make_pair(0,0), end-start));
+  timings.push_back(make_tuple("Copy back", make_pair(0,0), end-start, nlohmann::json()));
   for (int i =0; i<num_bins; i++) gpuErrchk( cudaFree(bins_d[i]));
   for (int i =0; i<num_bins; i++) 
     if(bin_sizes[i].first>0)

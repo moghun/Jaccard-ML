@@ -469,14 +469,14 @@ ostream & operator<<(ostream & out, vector<tuple<string, unsigned long long, dou
   return out;
 }
 
-vector<tuple<string, pair<unsigned long long, unsigned long long>, double>> average_kernel_times(vector<vector<tuple<string, pair<unsigned long long, unsigned long long>, double>>> kernel_times){
-  vector<tuple<string, pair<unsigned long long, unsigned long long>, double>> ret;
+vector<tuple<string, pair<unsigned long long, unsigned long long>, double, nlohmann::json>> average_kernel_times(vector<vector<tuple<string, pair<unsigned long long, unsigned long long>, double, nlohmann::json>>> kernel_times){
+  vector<tuple<string, pair<unsigned long long, unsigned long long>, double, nlohmann::json>> ret;
   for (int j = 0; j<kernel_times[0].size(); j++){
     double time = 0;
     for (int i = 0; i<kernel_times.size(); i++){
       time+=get<2>(kernel_times[i][j]);
     }
-    ret.push_back(make_tuple(get<0>(kernel_times[0][j]), get<1>(kernel_times[0][j]), time/kernel_times.size()));
+    ret.push_back(make_tuple(get<0>(kernel_times[0][j]), get<1>(kernel_times[0][j]), time/kernel_times.size(),get<3>(kernel_times[0][j])));
   }
   return ret; 
 }
@@ -560,6 +560,25 @@ std::string generate_name(std::string name, std::string range, dim3 grid, dim3 b
   return name;
 }
 
+template<typename VID>
+nlohmann::json generate_json(std::string name, int g, int a, int range, dim3 grid, dim3 block, VID SM_FAC){
+  nlohmann::json information;
+  information["name"] =name;
+  information["g"] = g;
+  information["a"] = a;
+  information["b_max"] = range;
+  information["grid"] = nlohmann::json();
+  information["grid"]["x"] = grid.x;
+  information["grid"]["y"] = grid.y;
+  information["grid"]["z"] = grid.z;
+  information["block"] = nlohmann::json();
+  information["block"]["x"] = block.x;
+  information["block"]["y"] = block.y;
+  information["block"]["z"] = block.z;
+  information["sm_fac"] = SM_FAC;
+  return information;
+}
+
 // compares two vectors of numbers element wise and returns (mean, std, num_different)
 template<typename T, typename C>
 std::tuple<double, double, ull> compare_vectors(T* v1, T* v2, C count, T threshold, vector<C>& indexes){
@@ -635,14 +654,27 @@ void validate_and_write(graph<IDType, IDType> g, string method_name, JaccardType
   write_json_to_file(output_file_name, output_json);
 }
 
-//template <typename JaccardValue, typename IDType>
-//void process_output(string graph_name, string method_name, double time, JaccardValue* calculated_jaccards, JaccardValue* true_jaccards, string jaccard_outfile, string output_file_name, nlohmann::json output_json, graph<IDType, IDType> g, bool& have_correct){
-//    std::tuple<double, double, unsigned long long> res;
-//    write_correct(have_correct, calculated_jaccards, true_jaccards, g.m, 1, jaccard_outfile);
-//    res = compare_jaccards(method_name, "Ground truth", true_jaccards, calculated_jaccards, g.m, JaccardValue(0), g.xadj, g.adj, g.is);
-//    unsigned long long errors = get<2>(res);
-//    pretty_print_results(cout, method_name , to_string(time), to_string(errors));
-//    output_json[method_name] =  get_result_json(graph_name, time, errors);
-//    write_json_to_file(output_file_name, output_json);
-//}
+template <typename IDType, typename JaccardType>
+void validate_and_write_binning(graph<IDType, IDType> g, vector<tuple<string, pair<unsigned long long, unsigned long long>, double, nlohmann::json>> timings, string method_name, JaccardType * emetrics_truth, JaccardType * emetrics_calculated,  double total_time, int num_average, std::string output_file_name, nlohmann::json& output_json, string jaccards_output_path, bool& have_correct){
+  write_correct(have_correct, emetrics_calculated, emetrics_truth, g.m, jaccards_output_path);
+  std::tuple<double, double, unsigned long long> res;
+  res = compare_jaccards(string("Ground truth"), method_name, emetrics_truth, emetrics_calculated, g.m, JaccardType(0), g.xadj, g.adj, g.is); 
+  unsigned long long errors = get<2>(res);
+  pretty_print_results(cout, method_name, to_string(total_time/num_average), to_string(errors));
+  nlohmann::json experiment_json;
+  experiment_json["time"] = total_time/num_average;
+  experiment_json["bins"] = nlohmann::json();
+  for (int i = 0; i < timings.size(); i++){
+    auto timing = timings[i];
+    experiment_json["bins"][i] = nlohmann::json();
+    experiment_json["bins"][i]["name"] = get<0>(timing);
+    experiment_json["bins"][i]["size"] = nlohmann::json();
+    experiment_json["bins"][i]["size"]["first"]  = get<1>(timing).first;
+    experiment_json["bins"][i]["size"]["second"]  = get<1>(timing).second;
+    experiment_json["bins"][i]["time"]  = get<2>(timing);
+    experiment_json["bins"][i]["information"] = get<3>(timing);
+  }
+  output_json["experiments"][method_name] = experiment_json;
+  write_json_to_file(output_file_name, output_json);
+}
 #endif

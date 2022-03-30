@@ -41,7 +41,7 @@ nlohmann::json read_json(std::string filename){
 
 void write_json_to_file(std::string filename, nlohmann::json& output_json){
     std::ofstream out(filename);
-    out << output_json;
+    out << output_json.dump(4);
 }
 
 #endif //JACCARD_ML_IO_H
