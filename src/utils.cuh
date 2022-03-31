@@ -469,14 +469,14 @@ ostream & operator<<(ostream & out, vector<tuple<string, unsigned long long, dou
   return out;
 }
 
-vector<tuple<string, pair<unsigned long long, unsigned long long>, double, nlohmann::json>> average_kernel_times(vector<vector<tuple<string, pair<unsigned long long, unsigned long long>, double, nlohmann::json>>> kernel_times){
-  vector<tuple<string, pair<unsigned long long, unsigned long long>, double, nlohmann::json>> ret;
+vector<tuple<pair<unsigned long long, unsigned long long>, double, nlohmann::json>> average_kernel_times(vector<vector<tuple<pair<unsigned long long, unsigned long long>, double, nlohmann::json>>> kernel_times){
+  vector<tuple<pair<unsigned long long, unsigned long long>, double, nlohmann::json>> ret;
   for (int j = 0; j<kernel_times[0].size(); j++){
     double time = 0;
     for (int i = 0; i<kernel_times.size(); i++){
-      time+=get<2>(kernel_times[i][j]);
+      time+=get<1>(kernel_times[i][j]);
     }
-    ret.push_back(make_tuple(get<0>(kernel_times[0][j]), get<1>(kernel_times[0][j]), time/kernel_times.size(),get<3>(kernel_times[0][j])));
+    ret.push_back(make_tuple(get<0>(kernel_times[0][j]), time/kernel_times.size(),get<2>(kernel_times[0][j])));
   }
   return ret; 
 }
@@ -655,7 +655,7 @@ void validate_and_write(graph<IDType, IDType> g, string method_name, JaccardType
 }
 
 template <typename IDType, typename JaccardType>
-void validate_and_write_binning(graph<IDType, IDType> g, vector<tuple<string, pair<unsigned long long, unsigned long long>, double, nlohmann::json>> timings, string method_name, JaccardType * emetrics_truth, JaccardType * emetrics_calculated,  double total_time, int num_average, std::string output_file_name, nlohmann::json& output_json, string jaccards_output_path, bool& have_correct){
+void validate_and_write_binning(graph<IDType, IDType> g, vector<tuple<pair<unsigned long long, unsigned long long>, double, nlohmann::json>> timings, string method_name, JaccardType * emetrics_truth, JaccardType * emetrics_calculated,  double total_time, int num_average, std::string output_file_name, nlohmann::json& output_json, string jaccards_output_path, bool& have_correct){
   write_correct(have_correct, emetrics_calculated, emetrics_truth, g.m, jaccards_output_path);
   std::tuple<double, double, unsigned long long> res;
   res = compare_jaccards(string("Ground truth"), method_name, emetrics_truth, emetrics_calculated, g.m, JaccardType(0), g.xadj, g.adj, g.is); 
@@ -667,12 +667,11 @@ void validate_and_write_binning(graph<IDType, IDType> g, vector<tuple<string, pa
   for (int i = 0; i < timings.size(); i++){
     auto timing = timings[i];
     experiment_json["bins"][i] = nlohmann::json();
-    experiment_json["bins"][i]["name"] = get<0>(timing);
     experiment_json["bins"][i]["size"] = nlohmann::json();
-    experiment_json["bins"][i]["size"]["first"]  = get<1>(timing).first;
-    experiment_json["bins"][i]["size"]["second"]  = get<1>(timing).second;
-    experiment_json["bins"][i]["time"]  = get<2>(timing);
-    experiment_json["bins"][i]["information"] = get<3>(timing);
+    experiment_json["bins"][i]["size"]["first"]  = get<0>(timing).first;
+    experiment_json["bins"][i]["size"]["second"]  = get<0>(timing).second;
+    experiment_json["bins"][i]["time"]  = get<1>(timing);
+    experiment_json["bins"][i]["information"] = get<2>(timing);
   }
   output_json["experiments"]["binning"][method_name] = experiment_json;
   write_json_to_file(output_file_name, output_json);
