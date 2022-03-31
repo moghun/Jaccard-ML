@@ -21,25 +21,6 @@
 #include "edge_metrics_binning.h"
 #include "utils.cuh"
 
-//#define SIMPLE_GPU
-//#define TEST_SET
-//#define _DONGARRA
-//#define SIMPLE_GPU_EDGE
-#ifdef TEST_SET
-//#define CONS_A_DIFF_G_NOSM
-//#define profile_a_range
-//#define CONS_G_DIFF_A_NOSM
-//#define SMALL
-//#define SMALL_SM
-#define LARGE
-//#define LARGE_SM
-//#define EDGE
-//#define EDGE_FILTER
-#define EDGE_FILTER_NUMV
-//#define ATOMIC_TWOSTEP
-//#define ATOMIC_TWOSTEP_TWOARRAY
-#endif
-
 #define NUM_THREADS  256
 #define NUM_BLOCKS  1024
 
@@ -292,13 +273,13 @@ int main(int argc, char** argv) {
   cout << "##############################" << endl << "###### Binning #####" << endl;
   gpuErrchk( cudaMemset(emetrics_cuda_d, 0, sizeof(jac_t) * g.m * 1) );
   vector<tuple<string, vector<tuple<string, JAC_FUNC<DIRECTED, vid_t, vid_t, jac_t>, dim3, dim3, vid_t, nlohmann::json>>, SEP_FUNC<vid_t, vid_t>>> all_kernels;
-  vector<tuple<string, vector<tuple<string, JAC_FUNC<DIRECTED, vid_t, vid_t, jac_t>, dim3, dim3, vid_t>>, SEP_FUNC<vid_t, vid_t>>> all_kernels_edgefilter;
-  vector<tuple<string, vector<tuple<string, JAC_FUNC<DIRECTED, vid_t, vid_t, jac_t>, dim3, dim3, vid_t>>, SEP_FUNC<vid_t, vid_t>>> all_kernels_twostep;
-  vector<tuple<string, vector<tuple<string, JAC_FUNC<DIRECTED, vid_t, vid_t, jac_t>, dim3, dim3, vid_t>>, SEP_FUNC<vid_t, vid_t>>> all_kernels_twostep_twoarray;
   vector<tuple<string, JAC_FUNC<DIRECTED, vid_t, vid_t, jac_t>, dim3, dim3, vid_t, nlohmann::json>> kernels;
   string name;
   vector<vid_t> ranges = {32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144}; 
   dim3 block(1,1,1), grid(1,1,1);
+  output_json["experiments"]["binning"] = nlohmann::json();
+  output_json["experiments"]["binning"]["ranges"] = ranges;
+
 
   // for each range, add either this kernel or a fallback kernel (in case SM doesn't work etc.
 //////////////////////////////////////////////////////////////////////////
@@ -314,176 +295,57 @@ int main(int argc, char** argv) {
           int sm_fac = ranges[i]; 
           if (sm_fac*sizeof(vid_t) <= max_sm){
             name = generate_name("u-per-grid-bst-inv-sm-sg"+string(1,(char)((int)log2(g)+'a'))+to_string(g)+"-sa"+string(1,(char)((int)log2(a)+'a'))+to_string(a),to_string(ranges[i]),grid, block, 1000);
-            kernels.push_back(make_tuple(name, jac_binning_gpu_u_per_grid_bst_inv_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, sm_fac));
+            nlohmann::json information = generate_json("u-per-grid-bst-inv-sm", log2(g), log2(a), ranges[i], grid, block, sm_fac);
+            kernels.push_back(make_tuple(name, jac_binning_gpu_u_per_grid_bst_inv_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, sm_fac, information));
           } else {
             dim3 block(1,1,1), grid(1,1,1); 
             block.x = k; block.y = 1; block.z = 1;
             grid.x = j;
             name = generate_name("u-per-grid-bst-bigsgroup-sg"+string(1,(char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[i]),grid, block, 1000);
+            nlohmann::json information = generate_json("u-per-grid-bst-bigsgroup", log2(k), log2(j), ranges[i], grid, block, 1000);
             kernels.push_back(make_tuple(name, 
-                  jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000));
+                  jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
           }
       }
       block.x = k; block.y = 1; block.z = 1;
       grid.x = j; 
       name = generate_name("u-per-grid-bst-bigsgroup-sg"+string(1, (char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[ranges.size()-1]),grid, block, 1000);
+      nlohmann::json information = generate_json("u-per-grid-bst-bigsgroup", log2(k), log2(j), ranges[ranges.size()-1], grid, block, 1000);
       kernels.push_back(make_tuple(name, 
-                                       jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000));
+                                       jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
       all_kernels.push_back(make_tuple("small-sm-sg"+string(1,(char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),kernels, split_vertices_by_ranges_cugraph_heur<vid_t, vid_t>));
       kernels.clear();
     }
   }
 #endif
 /////////////////////////////////////////////////////////////////////////
+#define SMALL
 #ifdef SMALL
-  for (int k = 4; k < 32; k*=2){
-    for (int j =4; j < 32; j*=2){
+  for (int k = 4; k < 8; k*=2){
+    for (int j =4; j < 8; j*=2){
       for (int i =0; i< ranges.size(); i++){
           dim3 block(1,1,1), grid(1,1,1); 
           block.x = k; block.y = max(1, WARP_SIZE/block.x); block.z = 1;
           grid.x = max(1, j/block.y);
           int g = block.x, a = block.y*grid.x;
           name = generate_name("u-per-grid-bst-sg"+string(1,(char)((int)log2(g)+'a'))+to_string(g)+"-sa"+string(1,(char)((int)log2(a)+'a'))+to_string(a),to_string(ranges[i]),grid, block, 1000);
+          nlohmann::json information = generate_json("u-per-grid-bst", log2(g), log2(a), ranges[i], grid, block, 1000);
           kernels.push_back(make_tuple(name, 
-                                           jac_binning_gpu_u_per_grid_bst_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000));
+                                           jac_binning_gpu_u_per_grid_bst_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
       }
       block.x = k; block.y = 1; block.z = 1;
       grid.x = j; 
       name = generate_name("u-per-grid-bst-sg"+string(1, (char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[ranges.size()-1]),grid, block, 1000);
+      nlohmann::json information = generate_json("u-per-grid-bst", log2(k), log2(j), ranges[ranges.size()-1], grid, block, 1000);
       kernels.push_back(make_tuple(name, 
-                                       jac_binning_gpu_u_per_grid_bst_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000));
+                                       jac_binning_gpu_u_per_grid_bst_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
       all_kernels.push_back(make_tuple("small-nosm-sg"+string(1, (char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),kernels, split_vertices_by_ranges_cugraph_heur<vid_t, vid_t>));
       kernels.clear();
     }
   }
 #endif
 /////////////////////////////////////////////////////////////////////////
-// TESTINGG
-#ifdef profile_g_range
-  {
-   int selected_range = 8192;
-   int total_threads = 4096;
-    vector<int> g_vals = {64,96,128,256,512,1024};
-    for (auto k : g_vals){
-    //for (int k =32; k <=; k+=32)
-      //for (int j =8; j <= 8; j*=2){
-      for (int j =8; j <= 2048; j*=2){
-        if (k*j != total_threads) continue;
-        for (int i =0; i< ranges.size(); i++){
-          dim3 block(1,1,1), grid(1,1,1); 
-          block.x = k; block.y = 1; block.z = 1;
-          grid.x = j;
-          name = generate_name("u-per-grid-bst-bigsgroup-sg"+string(1,(char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[i]),grid, block, 1000);
-          if (ranges[i] == selected_range){
-            kernels.push_back(make_tuple(name, 
-                  jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver_profiled<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000));
-          } else{
-            kernels.push_back(make_tuple(name, 
-                  jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000));
-          }
-        }
-        block.x = k; block.y = 1; block.z = 1;
-        grid.x = j; 
-        name = generate_name("u-per-grid-bst-bigsgroup-sg"+string(1, (char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[ranges.size()-1]),grid, block, 1000);
-        kernels.push_back(make_tuple(name, 
-              jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000));
-        all_kernels.push_back(make_tuple("large-nosm-sg"+string(1, (char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),kernels, split_vertices_by_ranges_cugraph_heur<vid_t, vid_t>));
-        kernels.clear();
-      }
-    }
-  }
-#endif
-/////////////////////////////////////////////////////////////////////////
-// TESTINGG
-#ifdef profile_a_range
-  {
-   int selected_range =16384;
-   int total_threads = 8192;
-    vector<int> g_vals = {64, 128, 256, 512};
-    for (auto k : g_vals){
-    //for (int k =32; k <=; k+=32)
-      //for (int j =8; j <= 8; j*=2){
-      //for (int j =32; j <= 32; j*=2){
-      for (int j =2; j <= 1024; j*=2){
-        if (k*j != total_threads) continue;
-        for (int i =0; i< ranges.size(); i++){
-          dim3 block(1,1,1), grid(1,1,1); 
-          block.x = k; block.y = 1; block.z = 1;
-          grid.x = j;
-          name = generate_name("u-per-grid-bst-bigsgroup-sg"+string(1,(char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[i]),grid, block, 1000);
-          if (ranges[i] == selected_range){
-            kernels.push_back(make_tuple(name, 
-                  jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver_profiled<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000));
-          } else{
-            kernels.push_back(make_tuple(name, 
-                  jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000));
-          }
-        }
-        block.x = k; block.y = 1; block.z = 1;
-        grid.x = j; 
-        name = generate_name("u-per-grid-bst-bigsgroup-sg"+string(1, (char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[ranges.size()-1]),grid, block, 1000);
-        kernels.push_back(make_tuple(name, 
-              jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000));
-        all_kernels.push_back(make_tuple("large-nosm-sg"+string(1, (char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),kernels, split_vertices_by_ranges_cugraph_heur<vid_t, vid_t>));
-        kernels.clear();
-      }
-    }
-  }
-#endif
-/////////////////////////////////////////////////////////////////////////
-// constant g - different a - no sm
-#ifdef CONS_G_DIFF_A_NOSM
-  {
-    for (int k =64; k <=64; k++){
-      for (int j =8; j <= 1024; j*=2){
-        for (int i =0; i< ranges.size(); i++){
-          dim3 block(1,1,1), grid(1,1,1); 
-          block.x = k; block.y = 1; block.z = 1;
-          grid.x = j;
-          name = generate_name("u-per-grid-bst-bigsgroup-sg"+string(1,(char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[i]),grid, block, 1000);
-          kernels.push_back(make_tuple(name, 
-                jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000));
-        }
-        block.x = k; block.y = 1; block.z = 1;
-        grid.x = j; 
-        name = generate_name("u-per-grid-bst-bigsgroup-sg"+string(1, (char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[ranges.size()-1]),grid, block, 1000);
-        kernels.push_back(make_tuple(name, 
-              jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000));
-        all_kernels.push_back(make_tuple("large-nosm-sg"+string(1, (char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),kernels, split_vertices_by_ranges_cugraph_heur<vid_t, vid_t>));
-        kernels.clear();
-      }
-    }
-  }
-#endif
-/////////////////////////////////////////////////////////////////////////
-// constant a - different g - no sm
-#ifdef CONS_A_DIFF_G_NOSM
-  {
-    vector<int> g_vals = {4,8,16,32,64,96,128};
-    for (auto k : g_vals){
-      for (int j =8; j <= 8; j*=2){
-        for (int i =0; i< ranges.size(); i++){
-          dim3 block(1,1,1), grid(1,1,1); 
-          block.x = k; block.y = 1; block.z = 1;
-          grid.x = j;
-          name = generate_name("u-per-grid-bst-bigsgroup-sg"+string(1,(char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[i]),grid, block, 1000);
-          kernels.push_back(make_tuple(name, 
-                jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000));
-        }
-        block.x = k; block.y = 1; block.z = 1;
-        grid.x = j; 
-        name = generate_name("u-per-grid-bst-bigsgroup-sg"+string(1, (char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[ranges.size()-1]),grid, block, 1000);
-        kernels.push_back(make_tuple(name, 
-              jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000));
-        all_kernels.push_back(make_tuple("large-nosm-sg"+string(1, (char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),kernels, split_vertices_by_ranges_cugraph_heur<vid_t, vid_t>));
-        kernels.clear();
-      }
-    }
-  }
-#endif
-/////////////////////////////////////////////////////////////////////////
 // LARGE
-#define LARGE
 #ifdef LARGE
   for (int k = 64; k <=64; k+=32){
     for (int j =8; j <= 8; j*=2){
@@ -517,314 +379,33 @@ int main(int argc, char** argv) {
           grid.x = j;
           int sm_fac = ranges[i]; 
           if (sm_fac*sizeof(vid_t)+block.x/WARP_SIZE*sizeof(vid_t) <= max_sm){
+            nlohmann::json information = generate_json("u-per-grid-bst-inv-sm-biggroup", log2(k), log2(j), ranges[i], grid, block, sm_fac);
             name = generate_name("u-per-grid-bst-inv-sm-biggroup-sg"+string(1,(char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[i]),grid, block, 1000);
-            kernels.push_back(make_tuple(name, jac_binning_gpu_u_per_grid_bst_inv_sm_bigsgroup_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, sm_fac));
+            kernels.push_back(make_tuple(name, jac_binning_gpu_u_per_grid_bst_inv_sm_bigsgroup_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, sm_fac, information));
           } else {
             dim3 block(1,1,1), grid(1,1,1); 
             block.x = k; block.y = 1; block.z = 1;
             grid.x = j;
+            nlohmann::json information = generate_json("u-per-grid-bst-bigsgroup", log2(k), log2(j), ranges[i], grid, block, 1000);
             name = generate_name("u-per-grid-bst-bigsgroup-sg"+string(1,(char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[i]),grid, block, 1000);
             kernels.push_back(make_tuple(name, 
-                                             jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000));
+                                             jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
           }
       }
       block.x = k; block.y = 1; block.z = 1;
       grid.x = j; 
+      nlohmann::json information = generate_json("u-per-grid-bst-bigsgroup", log2(k), log2(j), ranges[ranges.size()-1], grid, block, 1000);
       name = generate_name("u-per-grid-bst-bigsgroup-sg"+string(1, (char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[ranges.size()-1]),grid, block, 1000);
       kernels.push_back(make_tuple(name, 
-                                       jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000));
+                                       jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
       all_kernels.push_back(make_tuple("large-sm-sg"+string(1, (char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),kernels, split_vertices_by_ranges_cugraph_heur<vid_t, vid_t>));
       kernels.clear();
     }
   }
 #endif
 /////////////////////////////////////////////////////////////////////////
-#ifdef EDGE
-  if (!DIRECTED)
-// EDGE BASED - filter at binning time
-  {
-    vector<int> g_vals = {4,8,16,32,64,96,128};
-    for (int k : g_vals){
-      for (int j = 1; j < 5; j++){
-        for (int i =0; i< ranges.size(); i++){
-          dim3 block(1,1,1), grid(1,1,1); 
-          if (k < 32){
-            block.x = k;
-            if (k < WARP_SIZE){
-              block.y = WARP_SIZE/k;
-            }
-            name = generate_name("edge-based-sg"+string(1,(char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[i]),grid, block, j);
-            kernels.push_back(make_tuple(name, 
-                  jac_binning_gpu_edge_based_small_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, j));
-          } else {
-            block.x = k;
-            name = generate_name("edge-based-bigsgroup-sg"+string(1,(char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[i]),grid, block, j);
-            kernels.push_back(make_tuple(name, 
-                  jac_binning_gpu_edge_based_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, j));
-
-          }
-        }
-        block.x = k;
-        name = generate_name("edge-based-bigsgroup-sg"+string(1,(char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[ranges.size()-1]),grid, block, j);
-        kernels.push_back(make_tuple(name, 
-              jac_binning_gpu_edge_based_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, j));
-
-        all_kernels.push_back(make_tuple("edge-sg"+string(1,(char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),kernels, split_vertices_by_ranges_edges<vid_t, vid_t>));
-        kernels.clear();
-      }
-    }
-  }
-#endif
-/////////////////////////////////////////////////////////////////////////
-// EDGE BASED - filter at calculation time and bin size is based on number of vertices
-#ifdef EDGE_FILTER_NUMV
-  {
-    vector<int> g_vals = {64};
-    for (int k : g_vals){
-      for (int j = 8; j <=8; j++){
-        for (int i =0; i< ranges.size(); i++){
-          dim3 block(1,1,1), grid(1,1,1); 
-          if (k < 32){
-            block.x = k;
-            if (k < WARP_SIZE){
-              block.y = WARP_SIZE/k;
-            }
-            name = generate_name("edge-based-filter-numv-sg"+string(1,(char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[i]),grid, block, j);
-            kernels.push_back(make_tuple(name, 
-                  jac_binning_gpu_edge_based_small_filter_edgefilter_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, j));
-          } else {
-            block.x = k;
-            name = generate_name("edge-based-filter-numv-bigsgroup-sg"+string(1,(char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[i]),grid, block, j);
-            kernels.push_back(make_tuple(name, 
-                  jac_binning_gpu_edge_based_filter_edgefilter_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, j));
-
-          }
-        }
-        block.x = k;
-        name = generate_name("edge-based-filter-numv-bigsgroup-sg"+string(1,(char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[ranges.size()-1]),grid, block, j);
-        kernels.push_back(make_tuple(name, 
-              jac_binning_gpu_edge_based_filter_edgefilter_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, j));
-
-        all_kernels_edgefilter.push_back(make_tuple("edge-filter-numv-sg"+string(1,(char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),kernels, split_vertices_by_ranges_edges_nofilter<vid_t, vid_t>));
-        kernels.clear();
-      }
-    }
-  }
-#endif
-/////////////////////////////////////////////////////////////////////////
-// EDGE BASED - filter at calculation time
-#ifdef EDGE_FILTER
-  {
-    vector<int> g_vals = {64};
-    for (int k : g_vals){
-      for (int j = 8; j <=8; j++){
-        for (int i =0; i< ranges.size(); i++){
-          dim3 block(1,1,1), grid(1,1,1); 
-          if (k < 32){
-            block.x = k;
-            if (k < WARP_SIZE){
-              block.y = WARP_SIZE/k;
-            }
-            name = generate_name("edge-based-filter-sg"+string(1,(char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[i]),grid, block, j);
-            kernels.push_back(make_tuple(name, 
-                  jac_binning_gpu_edge_based_small_filter_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, j));
-          } else {
-            block.x = k;
-            name = generate_name("edge-based-filter-bigsgroup-sg"+string(1,(char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[i]),grid, block, j);
-            kernels.push_back(make_tuple(name, 
-                  jac_binning_gpu_edge_based_filter_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, j));
-
-          }
-        }
-        block.x = k;
-        name = generate_name("edge-based-filter-bigsgroup-sg"+string(1,(char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[ranges.size()-1]),grid, block, j);
-        kernels.push_back(make_tuple(name, 
-              jac_binning_gpu_edge_based_filter_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, j));
-
-        all_kernels.push_back(make_tuple("edge-filter-sg"+string(1,(char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),kernels, split_vertices_by_ranges_edges_nofilter<vid_t, vid_t>));
-        kernels.clear();
-      }
-    }
-  }
-#endif
-/////////////////////////////////////////////////////////////////////////
-// Atomic one that works with only one bin
-// LARGE
-#ifdef ATOMIC_TWOSTEP
-  {
-    vector<int> g_vals = {4,8,16,32,64,96,128};
-    for (auto k : g_vals){
-      for (int j =8; j <= 1024; j*=2){
-        for (int i =0; i< ranges.size(); i++){
-          dim3 block(1,1,1), grid(1,1,1); 
-          block.x = k; block.y = 1; block.z = 1;
-          grid.x = j;
-          name = generate_name("atomic-sg"+string(1,(char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[i]),grid, block, 1000);
-          kernels.push_back(make_tuple(name, 
-                jac_binning_atomic_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000));
-        }
-        block.x = k; block.y = 1; block.z = 1;
-        grid.x = j; 
-        name = generate_name("atomic-sg"+string(1, (char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[ranges.size()-1]),grid, block, 1000);
-        kernels.push_back(make_tuple(name, 
-              jac_binning_atomic_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000));
-        all_kernels_twostep.push_back(make_tuple("atomic-"+string(1, (char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),kernels, split_vertices_by_ranges_cugraph_heur<vid_t, vid_t>));
-        kernels.clear();
-      }
-    }
-  }
-#endif
-#ifdef ATOMIC_TWOSTEP_TWOARRAY
-  {
-    vector<int> g_vals = {4,8,16,32,64,96,128};
-    for (auto k : g_vals){
-      for (int j =8; j <= 1024; j*=2){
-        for (int i =0; i< ranges.size(); i++){
-          dim3 block(1,1,1), grid(1,1,1); 
-          block.x = k; block.y = 1; block.z = 1;
-          grid.x = j;
-          name = generate_name("atomic-twoarray-sg"+string(1,(char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[i]),grid, block, 1000);
-          kernels.push_back(make_tuple(name, 
-                jac_binning_atomic_twoarray_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000));
-        }
-        block.x = k; block.y = 1; block.z = 1;
-        grid.x = j; 
-        name = generate_name("atomic-twoarray-sg"+string(1, (char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),to_string(ranges[ranges.size()-1]),grid, block, 1000);
-        kernels.push_back(make_tuple(name, 
-              jac_binning_atomic_twoarray_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000));
-        all_kernels_twostep_twoarray.push_back(make_tuple("atomic-twoarray-"+string(1, (char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),kernels, split_vertices_by_ranges_cugraph_heur<vid_t, vid_t>));
-        kernels.clear();
-      }
-    }
-  }
-#endif
-/////////////////////////////////////////////////////////////////////////
-  vector<tuple<string, STRAT_FUNC<DIRECTED, vid_t, vid_t, jac_t>, SEP_FUNC<vid_t, vid_t>>> all_strats;
-  //all_strats.push_back(make_tuple("strategy 10", strategy_10<DIRECTED, vid_t, vid_t, jac_t>, split_vertices_by_ranges_cugraph_heur<vid_t, vid_t>));
-  //all_strats.push_back(make_tuple("strategy 11", strategy_11<DIRECTED, vid_t, vid_t, jac_t>, split_vertices_by_ranges_cugraph_heur<vid_t, vid_t>));
-  //all_strats.push_back(make_tuple("strategy 7", strategy_7<DIRECTED, vid_t, vid_t, jac_t>, split_vertices_by_ranges_edges_nofilter<vid_t, vid_t>));
-  //all_strats.push_back(make_tuple("strategy 7", strategy_7<DIRECTED, vid_t, vid_t, jac_t>, split_vertices_by_ranges_edges_nofilter<vid_t, vid_t>));
-  //all_strats.push_back(make_tuple("strategy 6", strategy_6<DIRECTED, vid_t, vid_t, jac_t>, split_vertices_by_ranges_edges<vid_t, vid_t>));
-  //all_strats.push_back(make_tuple("strategy 5", strategy_5<DIRECTED, vid_t, vid_t, jac_t>, split_vertices_by_ranges_cugraph_heur<vid_t, vid_t>));
-//  all_strats.push_back(make_tuple("strategy 2", strategy_2<DIRECTED, vid_t, vid_t, jac_t>, split_vertices_by_ranges_cugraph_heur<vid_t, vid_t>));
-//  all_strats.push_back(make_tuple("strategy 3", strategy_3<DIRECTED, vid_t, vid_t, jac_t>, split_vertices_by_ranges_cugraph_heur<vid_t, vid_t>));
-//  all_strats.push_back(make_tuple("strategy 4", strategy_4<DIRECTED, vid_t, vid_t, jac_t>, split_vertices_by_ranges_cugraph_heur<vid_t, vid_t>));
-  //all_strats.push_back(make_tuple("all k2", all_k2<DIRECTED, vid_t, vid_t, jac_t>, split_vertices_by_ranges_cugraph_heur<vid_t, vid_t>));
   vector<tuple<string, pair<unsigned long long, unsigned long long>, double, nlohmann::json>> kernel_time;
   vector<vector<tuple<string, pair<unsigned long long, unsigned long long>, double, nlohmann::json>>> kernel_times;
-/*
-  for (auto strat_splitter : all_strats){
-    total_time = 0;
-    auto strat_name = get<0>(strat_splitter);
-    auto strat_func = get<1>(strat_splitter);
-    auto splitter_function = get<2>(strat_splitter);
-    for (int i =0; i<num_average; i++){
-      start = omp_get_wtime();
-      kernel_time= binning_based_jaccard_async_strat<DIRECTED, vid_t, vid_t, jac_t>(g_d.is, g_d.xadj, g_d.adj, g_d.tadj, g_d.xadj_start, emetrics_cuda_d, is, xadj, adj, tadj, g.xadj_start, emetrics_cuda, g.n, g.m, splitter_function, ranges, strat_func, max_sm);
-      end = omp_get_wtime();
-      total_time+=end-start;
-      kernel_times.push_back(kernel_time);
-    }
-    kernel_time = average_kernel_times(kernel_times);
-    kernel_times.clear();
-    end = total_time/num_average;
-    write_correct(have_correct, emetrics_cuda, emetrics, g.m, 1, jaccards_output_path);
-    res = compare_jaccards(string("edge metrics CPU"), string("edge metrics GPU"), emetrics, emetrics_cuda, g.m, jac_t(0), xadj,adj, is); 
-    errors = get<2>(res);
-    pretty_print_results(cout, strat_name , to_string(total_time/num_average), to_string(errors));
-    start = 0;
-    print_binning_stuff(cout, binning_output_file, kernel_time, errors, start, end, argv[1]);
-    output_file << argv[1]  <<'\t'<< strat_name << '\t' << total_time/num_average << '\t' << errors << endl;
-    total_time=0;
-    kernel_time.clear();
-    gpuErrchk( cudaMemset(emetrics_cuda_d, 0, sizeof(jac_t) * g.m * 1) );
-  }
-*/
-  //for (auto strat_splitter : all_strats){
-  //  total_time = 0;
-  //  auto strat_name = get<0>(strat_splitter);
-  //  auto strat_func = get<1>(strat_splitter);
-  //  auto splitter_function = get<2>(strat_splitter);
-  //  for (int i =0; i<num_average; i++){
-  //    start = omp_get_wtime();
-  //    kernel_time = binning_based_jaccard_async_strat_onestream<DIRECTED, vid_t, vid_t, jac_t>(g_d.is, g_d.xadj, g_d.adj, g_d.tadj, g_d.xadj_start, emetrics_cuda_d, g.is, g.xadj, g.adj, g.tadj, g.xadj_start, emetrics_cuda, g.n, g.m, splitter_function, ranges, strat_func, max_sm);
-  //    end = omp_get_wtime();
-  //    total_time+=end-start;
-  //    kernel_times.push_back(kernel_time);
-  //  }
-  //  kernel_time = average_kernel_times(kernel_times);
-  //  kernel_times.clear();
-  //  end = total_time/num_average;
-  //  validate_and_write_binning(g,  kernel_time, "one_stream " + strat_name, emetrics, emetrics_cuda, total_time, num_average, output_file_name, output_json, jaccards_output_path, have_correct);
-  //  total_time=0;
-  //  kernel_time.clear();
-  //  gpuErrchk( cudaMemset(emetrics_cuda_d, 0, sizeof(jac_t) * g.m * 1) );
-  //}
-  //kernel_time.clear();
-  //kernel_times.clear();
-  //for (auto kernel_splitter : all_kernels_twostep_twoarray){
-  //  total_time = 0;
-  //  auto name = get<0>(kernel_splitter);
-  //  auto one_kernels = get<1>(kernel_splitter);
-  //  auto splitter_function = get<2>(kernel_splitter);
-  //  for (int i =0; i<num_average; i++){
-  //    start = omp_get_wtime();
-  //    kernel_time = binning_based_jaccard_twostep_twoarray<DIRECTED, vid_t, vid_t, jac_t>(g_d.is, g_d.xadj, g_d.adj, g_d.tadj, g_d.xadj_start, emetrics_cuda_d, g.is, g.xadj, g.adj, g.tadj, g.xadj_start, emetrics_cuda, g.n, g.m, splitter_function, ranges, one_kernels);
-  //    end = omp_get_wtime();
-  //    total_time+=end-start;
-  //    kernel_times.push_back(kernel_time);
-  //  }
-  //  kernel_time = average_kernel_times(kernel_times);
-  //  kernel_times.clear();
-  //  end = total_time/num_average;
-  //  start = 0;
-  //  total_time=0;
-  //  validate_and_write_binning(g,  kernel_time, name, emetrics, emetrics_cuda, total_time, num_average, output_file_name, output_json, jaccards_output_path, have_correct);
-  //  kernel_time.clear();
-  //  gpuErrchk( cudaMemset(emetrics_cuda_d, 0, sizeof(jac_t) * g.m * 1) );
-  //}
-  //for (auto kernel_splitter : all_kernels_twostep){
-  //  total_time = 0;
-  //  auto name = get<0>(kernel_splitter);
-  //  auto one_kernels = get<1>(kernel_splitter);
-  //  auto splitter_function = get<2>(kernel_splitter);
-  //  for (int i =0; i<num_average; i++){
-  //    start = omp_get_wtime();
-  //    kernel_time = binning_based_jaccard_twostep<DIRECTED, vid_t, vid_t, jac_t>(g_d.is, g_d.xadj, g_d.adj, g_d.tadj, g_d.xadj_start, emetrics_cuda_d, g.is, g.xadj, g.adj, g.tadj, g.xadj_start, emetrics_cuda, g.n, g.m, splitter_function, ranges, one_kernels);
-  //    end = omp_get_wtime();
-  //    total_time+=end-start;
-  //    kernel_times.push_back(kernel_time);
-  //  }
-  //  kernel_time = average_kernel_times(kernel_times);
-  //  kernel_times.clear();
-  //  end = total_time/num_average;
-  //  start = 0;
-  //  total_time=0;
-  //  validate_and_write_binning(g,  kernel_time, name, emetrics, emetrics_cuda, total_time, num_average, output_file_name, output_json, jaccards_output_path, have_correct);
-  //  kernel_time.clear();
-  //  gpuErrchk( cudaMemset(emetrics_cuda_d, 0, sizeof(jac_t) * g.m * (ull)1) );
-  //}
-  //for (auto kernel_splitter : all_kernels_edgefilter){
-  //  total_time = 0;
-  //  auto name = get<0>(kernel_splitter);
-  //  auto one_kernels = get<1>(kernel_splitter);
-  //  auto splitter_function = get<2>(kernel_splitter);
-  //  for (int i =0; i<num_average; i++){
-  //    start = omp_get_wtime();
-  //    kernel_time = binning_based_jaccard_edgefilter<DIRECTED, vid_t, vid_t, jac_t>(g_d.is, g_d.xadj, g_d.adj, g_d.tadj, g_d.xadj_start, emetrics_cuda_d, g.is, g.xadj, g.adj, g.tadj, g.xadj_start, emetrics_cuda, g.n, g.m, splitter_function, ranges, one_kernels);
-  //    end = omp_get_wtime();
-  //    total_time+=end-start;
-  //    kernel_times.push_back(kernel_time);
-  //  }
-  //  kernel_time = average_kernel_times(kernel_times);
-  //  kernel_times.clear();
-  //  end = total_time/num_average;
-  //  start = 0;
-  //  total_time=0;
-  //  validate_and_write_binning(g,  kernel_time, name, emetrics, emetrics_cuda, total_time, num_average, output_file_name, output_json, jaccards_output_path, have_correct);
-  //  kernel_time.clear();
-  //  gpuErrchk( cudaMemset(emetrics_cuda_d, 0, sizeof(jac_t) * g.m * (ull)1) );
-  //}
   for (auto kernel_splitter : all_kernels){
     total_time = 0;
     auto name = get<0>(kernel_splitter);
@@ -840,8 +421,6 @@ int main(int argc, char** argv) {
     kernel_time = average_kernel_times(kernel_times);
     kernel_times.clear();
     end = total_time/num_average;
-    start = 0;
-    total_time=0;
     validate_and_write_binning(g,  kernel_time, name, emetrics, emetrics_cuda, total_time, num_average, output_file_name, output_json, jaccards_output_path, have_correct);
     kernel_time.clear();
     gpuErrchk( cudaMemset(emetrics_cuda_d, 0, sizeof(jac_t) * g.m * (ull)1) );

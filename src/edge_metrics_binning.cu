@@ -447,9 +447,10 @@ __global__ void jac_binning_atomic_second_kernel(const EN* __restrict__ xadj, co
     emetrics[e] = emetrics[e]/(float)(xadj[is[e]+1]-xadj[is[e]]+xadj[adj[e]+1]-xadj[adj[e]]-emetrics[e]);
   }
 }
-// function will take the graph and the jaccard array, as well as a function that will speerate vertices into bins, and a kernel for each bin. It will execute the corresponding kernels on their bins and return the timings of the kernels
+// function will take the graph and the jaccard array, as well as a function that will speerate vertices into bins, and a kernel for each bin. 
+// It will execute the corresponding kernels on their bins and return the timings of the kernels
 // SEP: A seperating function - that takes a vertex ID and returns a class for the vertex
-// A list of functions that will be used with each class that SEP creates
+// jaccard_kernels: A list of functions that will be used with each class that SEP creates
 template <bool directed, typename EN, typename VID, typename E>
 vector<tuple<string, pair<unsigned long long, unsigned long long>, double>> binning_based_jaccard_twostep(
   // GPU variables

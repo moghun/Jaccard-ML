@@ -674,7 +674,7 @@ void validate_and_write_binning(graph<IDType, IDType> g, vector<tuple<string, pa
     experiment_json["bins"][i]["time"]  = get<2>(timing);
     experiment_json["bins"][i]["information"] = get<3>(timing);
   }
-  output_json["experiments"][method_name] = experiment_json;
+  output_json["experiments"]["binning"][method_name] = experiment_json;
   write_json_to_file(output_file_name, output_json);
 }
 #endif
