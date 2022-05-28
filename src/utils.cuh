@@ -34,13 +34,13 @@ bool sortedge(const pair<T,U> &a,
 }
 
 bool parse_arguments(int argc, const char** argv, string& input_graph,
-  #ifdef BINNING
+  #ifdef _BINNING
   string& binning_experiment_json_file_name,
   #endif
   string& output_json_file_name, int &num_average){
   argparse::ArgumentParser parser("JaccardML", "GPU calculation of jaccard weights");
   parser.add_argument().names({"-i"}).description("Path to the input graph edge list file").required(true);
-  #ifdef BINNING
+  #ifdef _BINNING
   parser.add_argument().names({"-e"}).description("Path to the JSON file with binning experiment parameters").required(true);
   #endif
   parser.add_argument().names({"-a"}).description("Number of runs to average timings over").required(false);
@@ -57,7 +57,7 @@ bool parse_arguments(int argc, const char** argv, string& input_graph,
     return 0;
   }
   input_graph = parser.get<string>("i");
-  #ifdef BINNING
+  #ifdef _BINNING
   binning_experiment_json_file_name = parser.get<string>("e");
   #endif
   if (parser.exists("a")){
@@ -581,7 +581,7 @@ void print_binning_stuff(ostream& ccout, ofstream& binning_output_file, vector<t
   details+="]";
   print_res_bin(ccout, "", "Errors", "Total time");
   print_res_bin(ccout, "",  to_string(errors), to_string(end-start));
-  binning_output_file << graph <<"\t"<<"BINNING"<< '\t' <<  end-start << '\t' << errors << '\t' << details << endl;
+  binning_output_file << graph <<"\t"<<"_BINNING"<< '\t' <<  end-start << '\t' << errors << '\t' << details << endl;
 
 }
 

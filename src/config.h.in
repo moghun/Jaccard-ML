@@ -2,8 +2,8 @@
 #cmakedefine _GPU
 #cmakedefine _CUGRAPH
 #cmakedefine _INHOUSE_CUGRAPH
-#cmakedefine SIMPLE_GPU
-#cmakedefine SIMPLE_GPU_EDGE
+#cmakedefine _SIMPLE_GPU
+#cmakedefine _SIMPLE_GPU_EDGE
 #cmakedefine _DONGARRA
-#cmakedefine01 DIRECTED
-#cmakedefine BINNING
+#cmakedefine01 _DIRECTED
+#cmakedefine _BINNING

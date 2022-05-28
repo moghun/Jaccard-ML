@@ -1,5 +1,5 @@
-#ifndef _BINNING
-#define _BINNING
+#ifndef _BINNING_H
+#define _BINNING_H
 using namespace std;
 // type definitions
 

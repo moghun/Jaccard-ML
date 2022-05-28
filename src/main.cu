@@ -42,21 +42,21 @@ int main(int argc, char** argv) {
   cout << "Passed an illegal value for sorting of CSR - undefining the sort variable\n";
 #undef SORT_ASC
 #endif
-#if (!DIRECTED)
+#if (!_DIRECTED)
     cout << "Treating graph as an undirected graph\n";
-#elif (DIRECTED)
+#elif (_DIRECTED)
     cout << "Treating graph as a directed graph\n";
 #else
   cout << "Bad directed preprocessor value. Exiting\n";
   return 1;
 #endif
   string output_json_file_name, input_graph_file_name;
-  #ifdef BINNING
+  #ifdef _BINNING
   string binning_experiment_json_file_name;
   #endif
   int num_average;
   if (!parse_arguments(argc, const_cast<const char**>(argv), input_graph_file_name,
-  #ifdef BINNING
+  #ifdef _BINNING
   binning_experiment_json_file_name,
   #endif 
   output_json_file_name, num_average)){
@@ -76,7 +76,7 @@ int main(int argc, char** argv) {
 
   // Reading graph
   cout << endl << endl << "Graph: " << input_graph_file_name << endl;
-  graph<vid_t, vid_t> g = open_graph<vid_t, READ_TYPE>(input_graph_file_name, DIRECTED);
+  graph<vid_t, vid_t> g = open_graph<vid_t, READ_TYPE>(input_graph_file_name, _DIRECTED);
   print_graph_statistics<vid_t, READ_TYPE>(g, output_json);
   cout << "##############################" << endl << endl;
 
@@ -102,7 +102,7 @@ int main(int argc, char** argv) {
     jac_t* emetrics_vanilla = new jac_t[g.m];
   for (int i = 0; i< num_average; i++){
     start = omp_get_wtime();
-    edge_based_metrics<DIRECTED, vid_t, vid_t, jac_t>(g.is, g.xadj, g.adj, g.n, emetrics_vanilla);
+    edge_based_metrics<_DIRECTED, vid_t, vid_t, jac_t>(g.is, g.xadj, g.adj, g.n, emetrics_vanilla);
     end = omp_get_wtime();
     total_time+=end-start;
   }
@@ -113,7 +113,7 @@ int main(int argc, char** argv) {
   total_time = 0;
   for (int i = 0; i< num_average; i++){
     start = omp_get_wtime();
-    edge_based_metrics_bitmap<DIRECTED, vid_t, vid_t, jac_t>(g.is, g.xadj, g.adj, g.n, emetrics_bitmap);
+    edge_based_metrics_bitmap<_DIRECTED, vid_t, vid_t, jac_t>(g.is, g.xadj, g.adj, g.n, emetrics_bitmap);
     end = omp_get_wtime();
     total_time+=end-start;
   }
@@ -161,7 +161,7 @@ int main(int argc, char** argv) {
   pretty_print_results(cout, "GPU - alloc/copy is" , to_string(t), to_string(0));
   output_json["experiments"]["GPU - alloc/copy"] =  get_result_json(t, 0);
   write_json_to_file(output_json_file_name, output_json);
-  if (DIRECTED == 0){
+  if (_DIRECTED == 0){
     alloc_copy_start = omp_get_wtime();
     cout << "GPU: allocating xadj_start\n";
     gpuErrchk( vcudaMalloc((void**)&g_d.xadj_start, sizeof(vid_t) * (g.n) ) );
@@ -173,7 +173,7 @@ int main(int argc, char** argv) {
       write_json_to_file(output_json_file_name, output_json);
   }
 
-#ifdef SIMPLE_GPU_EDGE
+#ifdef _SIMPLE_GPU_EDGE
   gpuErrchk( cudaMemset(emetrics_cuda_d, 0, sizeof(jac_t) * g.m) );
   total_time = 0;
   int gg = 32;
@@ -184,7 +184,7 @@ int main(int argc, char** argv) {
     grid.z = min(MAX_GRID_DIM, max(1, g.m/a/grid.y));
     for (int i = 0; i< num_average; i++){
       start = omp_get_wtime();
-      jac_edge_based_small<DIRECTED, vid_t, vid_t, jac_t><<<grid, gg>>>(g_d.xadj, g_d.adj, g_d.is, g.n, emetrics_cuda_d);
+      jac_edge_based_small<_DIRECTED, vid_t, vid_t, jac_t><<<grid, gg>>>(g_d.xadj, g_d.adj, g_d.is, g.n, emetrics_cuda_d);
       gpuErrchk( cudaDeviceSynchronize() );
       gpuErrchk( cudaMemcpy(emetrics_cuda, emetrics_cuda_d, (ull)sizeof(jac_t) * g.m, cudaMemcpyDeviceToHost) );
       end = omp_get_wtime();
@@ -195,7 +195,7 @@ int main(int argc, char** argv) {
 
 #endif
  
-#ifdef SIMPLE_GPU
+#ifdef _SIMPLE_GPU
   //Compute edge-based metrics cuda
   gpuErrchk( cudaMemset(emetrics_cuda_d, 0, sizeof(jac_t) * g.m) );
   total_time = 0;
@@ -265,13 +265,13 @@ int main(int argc, char** argv) {
   validate_and_write(g,  "GPU - cuGraph", emetrics, emetrics_cuda, total_time, num_average, output_json_file_name, output_json, jaccards_output_path, have_correct);
 #endif
   
-#ifdef BINNING
+#ifdef _BINNING
   //Each binning experiment will
   cout << "##############################" << endl << "###### Binning #####" << endl;
   gpuErrchk( cudaMemset(emetrics_cuda_d, 0, sizeof(jac_t) * g.m * 1) );
   nlohmann::json binning_experiment_json = read_json(binning_experiment_json_file_name);
-  vector<tuple<string, vector<tuple<JAC_FUNC<DIRECTED, vid_t, vid_t, jac_t>, dim3, dim3, vid_t, nlohmann::json>>, SEP_FUNC<vid_t, vid_t>>> all_kernels;
-  vector<tuple<JAC_FUNC<DIRECTED, vid_t, vid_t, jac_t>, dim3, dim3, vid_t, nlohmann::json>> kernels;
+  vector<tuple<string, vector<tuple<JAC_FUNC<_DIRECTED, vid_t, vid_t, jac_t>, dim3, dim3, vid_t, nlohmann::json>>, SEP_FUNC<vid_t, vid_t>>> all_kernels;
+  vector<tuple<JAC_FUNC<_DIRECTED, vid_t, vid_t, jac_t>, dim3, dim3, vid_t, nlohmann::json>> kernels;
   string name;
   vector<vid_t> ranges = binning_experiment_json["ranges"];//{32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144}; 
   dim3 block(1,1,1), grid(1,1,1);
@@ -295,21 +295,21 @@ int main(int argc, char** argv) {
             int sm_fac = ranges[i]; 
             if (sm_fac*sizeof(vid_t) <= max_sm){
               nlohmann::json information = generate_json("u-per-grid-bst-inv-sm", g, a, ranges[i], grid, block, sm_fac);
-              kernels.push_back(make_tuple(jac_binning_gpu_u_per_grid_bst_inv_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, sm_fac, information));
+              kernels.push_back(make_tuple(jac_binning_gpu_u_per_grid_bst_inv_sm_driver<_DIRECTED, vid_t, vid_t, jac_t>, grid, block, sm_fac, information));
             } else {
               dim3 block(1,1,1), grid(1,1,1); 
               block.x = k; block.y = 1; block.z = 1;
               grid.x = j;
               nlohmann::json information = generate_json("u-per-grid-bst-bigsgroup", k, j, ranges[i], grid, block, 1000);
               kernels.push_back(make_tuple(
-                    jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
+                    jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<_DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
             }
         }
         block.x = k; block.y = 1; block.z = 1;
         grid.x = j; 
         nlohmann::json information = generate_json("u-per-grid-bst-bigsgroup", k, j, ranges[ranges.size()-1], grid, block, 1000);
         kernels.push_back(make_tuple(
-                                        jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
+                                        jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<_DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
         all_kernels.push_back(make_tuple("small-sm-sg"+string(1,(char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),kernels, split_vertices_by_ranges_cugraph_heur<vid_t, vid_t>));
         kernels.clear();
       }
@@ -328,13 +328,13 @@ int main(int argc, char** argv) {
             int g = block.x, a = block.y*grid.x;
             nlohmann::json information = generate_json("u-per-grid-bst", g, a, ranges[i], grid, block, 1000);
             kernels.push_back(make_tuple(
-                                            jac_binning_gpu_u_per_grid_bst_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
+                                            jac_binning_gpu_u_per_grid_bst_driver<_DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
         }
         block.x = k; block.y = 1; block.z = 1;
         grid.x = j; 
         nlohmann::json information = generate_json("u-per-grid-bst", k, j, ranges[ranges.size()-1], grid, block, 1000);
         kernels.push_back(make_tuple(
-                                        jac_binning_gpu_u_per_grid_bst_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
+                                        jac_binning_gpu_u_per_grid_bst_driver<_DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
         all_kernels.push_back(make_tuple("small-nosm-sg"+string(1, (char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),kernels, split_vertices_by_ranges_cugraph_heur<vid_t, vid_t>));
         kernels.clear();
       }
@@ -353,13 +353,13 @@ int main(int argc, char** argv) {
             grid.x = j;
             nlohmann::json information = generate_json("u-per-grid-bst-bigsgroup", k, j, ranges[i], grid, block, 1000);
             kernels.push_back(make_tuple( 
-                                            jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
+                                            jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<_DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
         }
         block.x = k; block.y = 1; block.z = 1;
         grid.x = j; 
         nlohmann::json information = generate_json("u-per-grid-bst-bigsgroup", k, j, ranges[ranges.size()-1], grid, block, 1000);
         kernels.push_back(make_tuple(
-                                        jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
+                                        jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<_DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
         all_kernels.push_back(make_tuple("large-nosm-sg"+string(1, (char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),kernels, split_vertices_by_ranges_cugraph_heur<vid_t, vid_t>));
         kernels.clear();
       }
@@ -378,21 +378,21 @@ int main(int argc, char** argv) {
           int sm_fac = ranges[i]; 
           if (sm_fac*sizeof(vid_t)+block.x/WARP_SIZE*sizeof(vid_t) <= max_sm){
             nlohmann::json information = generate_json("u-per-grid-bst-inv-sm-biggroup", k, j, ranges[i], grid, block, sm_fac);
-            kernels.push_back(make_tuple(jac_binning_gpu_u_per_grid_bst_inv_sm_bigsgroup_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, sm_fac, information));
+            kernels.push_back(make_tuple(jac_binning_gpu_u_per_grid_bst_inv_sm_bigsgroup_driver<_DIRECTED, vid_t, vid_t, jac_t>, grid, block, sm_fac, information));
           } else {
             dim3 block(1,1,1), grid(1,1,1); 
             block.x = k; block.y = 1; block.z = 1;
             grid.x = j;
             nlohmann::json information = generate_json("u-per-grid-bst-bigsgroup", k, j, ranges[i], grid, block, 1000);
             kernels.push_back(make_tuple(
-                                             jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
+                                             jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<_DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
           }
       }
       block.x = k; block.y = 1; block.z = 1;
       grid.x = j; 
       nlohmann::json information = generate_json("u-per-grid-bst-bigsgroup", k, j, ranges[ranges.size()-1], grid, block, 1000);
       kernels.push_back(make_tuple( 
-                                       jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
+                                       jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<_DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
       all_kernels.push_back(make_tuple("large-sm-sg"+string(1, (char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),kernels, split_vertices_by_ranges_cugraph_heur<vid_t, vid_t>));
       kernels.clear();
     }
@@ -408,7 +408,7 @@ int main(int argc, char** argv) {
     auto splitter_function = get<2>(kernel_splitter);
     for (int i =0; i<num_average; i++){
       start = omp_get_wtime();
-      kernel_time = binning_based_jaccard<DIRECTED, vid_t, vid_t, jac_t>(g_d.is, g_d.xadj, g_d.adj, g_d.tadj, g_d.xadj_start, emetrics_cuda_d, g.is, g.xadj, g.adj, g.tadj, g.xadj_start, emetrics_cuda, g.n, g.m, splitter_function, ranges, one_kernels);
+      kernel_time = binning_based_jaccard<_DIRECTED, vid_t, vid_t, jac_t>(g_d.is, g_d.xadj, g_d.adj, g_d.tadj, g_d.xadj_start, emetrics_cuda_d, g.is, g.xadj, g.adj, g.tadj, g.xadj_start, emetrics_cuda, g.n, g.m, splitter_function, ranges, one_kernels);
       end = omp_get_wtime();
       total_time+=end-start;
       kernel_times.push_back(kernel_time);
