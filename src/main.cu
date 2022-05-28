@@ -31,7 +31,6 @@ typedef unsigned int vid_t; // used for adj and xadj and SHOULD REPRESENT |E| WI
 typedef float jac_t; // used for jaccards (or floats in general)
 typedef unsigned long long ull;
 
-
 int main(int argc, char** argv) {
 #ifndef SORT_ASC
     cout << "Not sorting CSR by degrees\n";
@@ -51,56 +50,47 @@ int main(int argc, char** argv) {
   cout << "Bad directed preprocessor value. Exiting\n";
   return 1;
 #endif
-    if(argc < 2) {
-        cout << "Use: exec filename [num_average] [output_file_name] " << endl;
-        return 1;
-    }
-    float num_average = 1;
-    if (argc>2)
-        num_average = atof(argv[2]);
-    cout << "Using the average of " << num_average << " runs" << endl;
+  string output_json_file_name, input_graph_file_name;
+  int num_average;
+  if (!parse_arguments(argc, const_cast<const char**>(argv), input_graph_file_name, output_json_file_name, num_average)){
+    return 1;
+  }
+  cout << "Using the average of " << num_average << " runs" << endl;
 
-    unsigned long long milliseconds_since_epoch = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
-    string output_file_name;
-    if (argc>3)
-        output_file_name = string(argv[3]);
-    else {
-        output_file_name = "output_"+to_string(milliseconds_since_epoch)+".csv";
-    }
-    // Prepare output json
-    nlohmann::json output_json;
-    // If it's already been written to, read it back, otherwise initialize it
-    if (!check_file_exists(output_file_name)){
-        output_json = initialize_output_json(argv[1]);
-    } else {
-        output_json = read_json(output_file_name);
-    }
-    cout << "Printing results to the file " << output_file_name;
+  // Prepare output json
+  nlohmann::json output_json;
+  // If it's already been written to, read it back, otherwise initialize it
+  if (!check_file_exists(output_json_file_name)){
+      output_json = initialize_output_json(input_graph_file_name);
+  } else {
+      output_json = read_json(output_json_file_name);
+  }
+  cout << "Printing results to the file " << output_json_file_name;
 
-    // Reading graph
-    cout << endl << endl << "Graph: " << argv[1] << endl;
-    graph<vid_t, vid_t> g = open_graph<vid_t, READ_TYPE>(argv[1], DIRECTED);
-    print_graph_statistics<vid_t, READ_TYPE>(g, output_json);
-    cout << "##############################" << endl << endl;
+  // Reading graph
+  cout << endl << endl << "Graph: " << input_graph_file_name << endl;
+  graph<vid_t, vid_t> g = open_graph<vid_t, READ_TYPE>(input_graph_file_name, DIRECTED);
+  print_graph_statistics<vid_t, READ_TYPE>(g, output_json);
+  cout << "##############################" << endl << endl;
 
-    pretty_print_results(cout, "Algorithm", "Time", "Errors");
+  pretty_print_results(cout, "Algorithm", "Time", "Errors");
 
 
-    // Create Jaccard array -- will contain ground truth
-    jac_t* emetrics = new jac_t[g.m];
+  // Create Jaccard array -- will contain ground truth
+  jac_t* emetrics = new jac_t[g.m];
 
-    // Check if the jaccard value has been cached before
-    string jaccards_output_path = string(argv[1])+ ".corr.bin";
-    ifstream infile_corr_bin(jaccards_output_path , ios::in | ios::binary);
+  // Check if the jaccard value has been cached before
+  string jaccards_output_path = string(input_graph_file_name)+ ".corr.bin";
+  ifstream infile_corr_bin(jaccards_output_path , ios::in | ios::binary);
 
-    bool have_correct = false;
-    if(infile_corr_bin.is_open()) {
-        cout << "Reading correct jaccard values from disk\n";
-        have_correct = true;
-        infile_corr_bin.read((char*)(emetrics), sizeof(jac_t)*g.m);
-    }
-    double total_time = 0;
-    double start, end;
+  bool have_correct = false;
+  if(infile_corr_bin.is_open()) {
+      cout << "Reading correct jaccard values from disk\n";
+      have_correct = true;
+      infile_corr_bin.read((char*)(emetrics), sizeof(jac_t)*g.m);
+  }
+  double total_time = 0;
+  double start, end;
 #ifdef _CPU
     jac_t* emetrics_vanilla = new jac_t[g.m];
   for (int i = 0; i< num_average; i++){
@@ -109,7 +99,7 @@ int main(int argc, char** argv) {
     end = omp_get_wtime();
     total_time+=end-start;
   }
-  validate_and_write(g, "CPU", emetrics, emetrics_vanilla, total_time, num_average, output_file_name, output_json, jaccards_output_path, have_correct);
+  validate_and_write(g, "CPU", emetrics, emetrics_vanilla, total_time, num_average, output_json_file_name, output_json, jaccards_output_path, have_correct);
 
   //Compute edge-based metrics
   jac_t* emetrics_bitmap = new jac_t[g.m];
@@ -120,7 +110,7 @@ int main(int argc, char** argv) {
     end = omp_get_wtime();
     total_time+=end-start;
   }
-  validate_and_write(g, "CPU - bitmap", emetrics, emetrics_bitmap, total_time, num_average, output_file_name, output_json, jaccards_output_path, have_correct);
+  validate_and_write(g, "CPU - bitmap", emetrics, emetrics_bitmap, total_time, num_average, output_json_file_name, output_json, jaccards_output_path, have_correct);
 
 #endif
 #ifdef _GPU
@@ -152,7 +142,7 @@ int main(int argc, char** argv) {
   double alloc_copy_end = omp_get_wtime();
   double t = alloc_copy_end -alloc_copy_start; 
   output_json["experiments"]["GPU - alloc/copy"] =  get_result_json(t, 0);
-  write_json_to_file(output_file_name, output_json);
+  write_json_to_file(output_json_file_name, output_json);
   pretty_print_results(cout, "GPU - alloc/copy" , to_string(t), to_string(0));
 
   alloc_copy_start = omp_get_wtime();
@@ -163,7 +153,7 @@ int main(int argc, char** argv) {
   t = alloc_copy_end -alloc_copy_start; 
   pretty_print_results(cout, "GPU - alloc/copy is" , to_string(t), to_string(0));
   output_json["experiments"]["GPU - alloc/copy"] =  get_result_json(t, 0);
-  write_json_to_file(output_file_name, output_json);
+  write_json_to_file(output_json_file_name, output_json);
   if (DIRECTED == 0){
     alloc_copy_start = omp_get_wtime();
     cout << "GPU: allocating xadj_start\n";
@@ -173,7 +163,7 @@ int main(int argc, char** argv) {
     t = alloc_copy_end -alloc_copy_start; 
     pretty_print_results(cout, "GPU - alloc/copy xadj_start" , to_string(t), to_string(0));
       output_json["experiments"]["GPU - alloc/copy xadj_start"] =  get_result_json(t, 0);
-      write_json_to_file(output_file_name, output_json);
+      write_json_to_file(output_json_file_name, output_json);
   }
 
 #ifdef SIMPLE_GPU_EDGE
@@ -194,7 +184,7 @@ int main(int argc, char** argv) {
       total_time+=end-start;
     }
   }
-  validate_and_write(g, "GPU - SG per edge g="+to_string(gg)+" a="+to_string(a), emetrics, emetrics_cuda, total_time, num_average, output_file_name, output_json, jaccards_output_path, have_correct);
+  validate_and_write(g, "GPU - SG per edge g="+to_string(gg)+" a="+to_string(a), emetrics, emetrics_cuda, total_time, num_average, output_json_file_name, output_json, jaccards_output_path, have_correct);
 
 #endif
  
@@ -211,7 +201,7 @@ int main(int argc, char** argv) {
     total_time+=end-start;
   }
 // if no CPU runs are happening, set the reference jaccard values (for error checking) to be this kernel's
-  validate_and_write(g,  "GPU - Thread per u", emetrics, emetrics_cuda, total_time, num_average, output_file_name, output_json, jaccards_output_path, have_correct);
+  validate_and_write(g,  "GPU - Thread per u", emetrics, emetrics_cuda, total_time, num_average, output_json_file_name, output_json, jaccards_output_path, have_correct);
 #endif
 
 #ifdef _DONGARRA
@@ -240,7 +230,7 @@ int main(int argc, char** argv) {
       end = omp_get_wtime();
       total_time+=end-start;
     }
-    validate_and_write(g,  "GPU - Dongarra - "+to_string(dongarra_threads)+" threads", emetrics, emetrics_cuda, total_time, num_average, output_file_name, output_json, jaccards_output_path, have_correct);
+    validate_and_write(g,  "GPU - Dongarra - "+to_string(dongarra_threads)+" threads", emetrics, emetrics_cuda, total_time, num_average, output_json_file_name, output_json, jaccards_output_path, have_correct);
   }
 
   gpuErrchk( cudaFree(rowidxJ_d) );
@@ -265,7 +255,7 @@ int main(int argc, char** argv) {
     end = omp_get_wtime();
     total_time+=end-start;
   }
-  validate_and_write(g,  "GPU - cuGraph", emetrics, emetrics_cuda, total_time, num_average, output_file_name, output_json, jaccards_output_path, have_correct);
+  validate_and_write(g,  "GPU - cuGraph", emetrics, emetrics_cuda, total_time, num_average, output_json_file_name, output_json, jaccards_output_path, have_correct);
 #endif
   
 #ifdef BINNING
@@ -411,7 +401,7 @@ int main(int argc, char** argv) {
     kernel_time = average_kernel_times(kernel_times);
     kernel_times.clear();
     end = total_time/num_average;
-    validate_and_write_binning(g,  kernel_time, name, emetrics, emetrics_cuda, total_time, num_average, output_file_name, output_json, jaccards_output_path, have_correct);
+    validate_and_write_binning(g,  kernel_time, name, emetrics, emetrics_cuda, total_time, num_average, output_json_file_name, output_json, jaccards_output_path, have_correct);
     kernel_time.clear();
     gpuErrchk( cudaMemset(emetrics_cuda_d, 0, sizeof(jac_t) * g.m * (ull)1) );
   }

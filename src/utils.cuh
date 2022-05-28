@@ -13,6 +13,7 @@
 #include <fstream>
 #include <omp.h>
 #include "io.h"
+#include "argparse/argparse.h"
 using namespace std;
 
 typedef unsigned long long ull;
@@ -29,6 +30,37 @@ bool sortedge(const pair<T,U> &a,
     } else {
         return (a.first < b.first);
     }
+}
+
+bool parse_arguments(int argc, const char** argv, string& input_graph, string& output_json_file_name, int &num_average){
+  argparse::ArgumentParser parser("JaccardML", "GPU calculation of jaccard weights");
+  parser.add_argument().names({"-i"}).description("Path to the input graph edge list file").required(true);
+  parser.add_argument().names({"-a"}).description("Number of runs to average timings over").required(false);
+  parser.add_argument().names({"-j"}).description("Path to the JSON file to print experiment outputs to").required(false);
+  parser.enable_help();
+  auto error = parser.parse(argc, argv);
+  if (error){
+    cout << error << endl;
+    parser.print_help();
+    return false;
+  }
+  if (parser.exists("help")){
+    parser.print_help();
+    return 0;
+  }
+  input_graph = parser.get<string>("i");
+  if (parser.exists("a")){
+    num_average = parser.get<int>("a");
+  } else {
+    num_average = 1;
+  }
+  if (parser.exists("j")){
+    output_json_file_name  = parser.get<string>("j");
+  } else {
+    unsigned long long milliseconds_since_epoch = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
+    output_json_file_name = "output_"+to_string(milliseconds_since_epoch)+".csv";
+  }
+  return true;
 }
 
 template<typename T, typename C>
