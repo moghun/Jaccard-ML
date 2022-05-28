@@ -40,11 +40,11 @@ bool parse_arguments(int argc, const char** argv, string& input_graph,
   string& output_json_file_name, int &num_average){
   argparse::ArgumentParser parser("JaccardML", "GPU calculation of jaccard weights");
   parser.add_argument().names({"-i"}).description("Path to the input graph edge list file").required(true);
+  #ifdef BINNING
   parser.add_argument().names({"-e"}).description("Path to the JSON file with binning experiment parameters").required(true);
+  #endif
   parser.add_argument().names({"-a"}).description("Number of runs to average timings over").required(false);
   parser.add_argument().names({"-j"}).description("Path to the JSON file to print experiment outputs").required(false);
-  #ifdef BINNING
-  #endif
   parser.enable_help();
   auto error = parser.parse(argc, argv);
   if (error){
