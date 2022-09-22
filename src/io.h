@@ -4,44 +4,44 @@
 
 #ifndef JACCARD_ML_IO_H
 #define JACCARD_ML_IO_H
-#include "json.hpp"
+#include "json.h"
 #include "utility"
 #include "time.h"
 #include <iostream>
 #include <fstream>
 
-nlohmann::json& operator<<(nlohmann::json& j, std::pair<std::string, std::string> data){
-   j[data.first] = data.second;
+JSONWrapper& operator<<(JSONWrapper& j, std::pair<std::string, std::string> data){
+   j.Use(data.first, data.second, true);
    return j;
 }
-nlohmann::json get_result_json(double time, unsigned long long errors){
-    nlohmann::json output;
-    output["time"] = time;
-    output["errors"] = errors;
+JSONWrapper get_result_json(double time, unsigned long long errors){
+    JSONWrapper output;
+    output.Use("time",time, true);
+    output.Use("errors", errors, true);
     time_t time_obj = time;
-    output["timestamp"] = ctime(&time_obj);
+    output.Set("timestamp", ctime(&time_obj));
     return output;
 }
 
-nlohmann::json initialize_output_json(std::string graph_name){
-    nlohmann::json metadata;
-    metadata["graph name"] = graph_name;
-    nlohmann::json j;
-    j["metadata"] = metadata;
-    j["experiments"] = nlohmann::json();
+JSONWrapper initialize_output_json(std::string graph_name){
+    JSONWrapper metadata;
+    metadata.Use("graph name", graph_name, true);
+    JSONWrapper j;
+    j.SetJSON("metadata",  metadata);
+    j.SetJSON("experiments", JSONWrapper());
     return j;
 }
 
-nlohmann::json read_json(std::string filename){
+JSONWrapper read_json(std::string filename){
     std::ifstream fin(filename);
-    nlohmann::json output_json;
+    JSONWrapper output_json;
     fin >> output_json;
     return output_json;
 }
 
-void write_json_to_file(std::string filename, nlohmann::json& output_json){
+void write_json_to_file(std::string filename, JSONWrapper& output_json){
     std::ofstream out(filename);
-    out << output_json.dump(4);
+    out << output_json;
 }
 
 #endif //JACCARD_ML_IO_H

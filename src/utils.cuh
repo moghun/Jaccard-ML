@@ -21,7 +21,7 @@ typedef unsigned long long ull;
 
 #ifndef _UTILS
 #define _UTILS
-#include "json.hpp"
+#include "json.h"
 
 template<typename T, typename U>
 bool sortedge(const pair<T,U> &a,
@@ -41,10 +41,10 @@ bool parse_arguments(int argc, const char** argv, string& input_graph,
   argparse::ArgumentParser parser("JaccardML", "GPU calculation of jaccard weights");
   parser.add_argument().names({"-i"}).description("Path to the input graph edge list file").required(true);
   #ifdef _BINNING
-  parser.add_argument().names({"-e"}).description("Path to the JSON file with binning experiment parameters").required(true);
+  parser.add_argument().names({"-e"}).description("Path to the JSONWrapper file with binning experiment parameters").required(true);
   #endif
   parser.add_argument().names({"-a"}).description("Number of runs to average timings over").required(false);
-  parser.add_argument().names({"-j"}).description("Path to the JSON file to print experiment outputs").required(false);
+  parser.add_argument().names({"-j"}).description("Path to the JSONWrapper file to print experiment outputs").required(false);
   parser.enable_help();
   auto error = parser.parse(argc, argv);
   if (error){
@@ -323,11 +323,11 @@ graph<IDType, IDType> open_graph(string graph_name, bool directed){
 
 
 template <typename IDType, typename ReadType>
-void print_graph_statistics(graph<IDType, IDType> g, nlohmann::json& output_json){
+void print_graph_statistics(graph<IDType, IDType> g, JSONWrapper& output_json){
     IDType *xadj = g.xadj, m = g.m, n = g.n;
-    nlohmann::json metadata = output_json["metadata"];
-    metadata["m"] = m;
-    metadata["n"] = n;
+    JSONWrapper metadata = output_json.GetJSON("metadata");
+    metadata.Set("m", m);
+    metadata.Set("n", n);
 
     IDType max_deg = 0, min_deg = n, deg, deg1 = 0, deg2 = 0, deg3 = 0, degg32 = 0, degg64 = 0, degg128 = 0, degg256 = 0, degg512 = 0, degg1024 = 0;
     for(IDType u = 0; u < n; u++) {
@@ -345,9 +345,9 @@ void print_graph_statistics(graph<IDType, IDType> g, nlohmann::json& output_json
         if(deg > max_deg) {max_deg = deg;}
     }
 
-    metadata["min_deg"] =min_deg;
-    metadata["max_deg"] =max_deg;
-    metadata["avg_deg"] =((float)m)/n;
+    metadata.Set("min_deg", min_deg);
+    metadata.Set("max_deg", max_deg);
+    metadata.Set("avg_deg", ((float)m)/n);
 
     cout << "Min deg: " << min_deg << endl;
     cout << "Max deg: " << max_deg << endl;
@@ -364,7 +364,7 @@ void print_graph_statistics(graph<IDType, IDType> g, nlohmann::json& output_json
     cout << "# deg>512: " << degg512 << endl;
     cout << "# deg>1024: " << degg1024 << endl;
     cout << "---------------------------" << endl << endl;
-    output_json["metadata"] = metadata;
+    output_json.SetJSON("metadata", metadata);
     //int in_range = 0;
     //int edges = 0;
     //for (IDType u = 0; u < n; u++){
@@ -512,8 +512,8 @@ ostream & operator<<(ostream & out, vector<tuple<string, unsigned long long, dou
   return out;
 }
 
-vector<tuple<pair<unsigned long long, unsigned long long>, double, nlohmann::json>> average_kernel_times(vector<vector<tuple<pair<unsigned long long, unsigned long long>, double, nlohmann::json>>> kernel_times){
-  vector<tuple<pair<unsigned long long, unsigned long long>, double, nlohmann::json>> ret;
+vector<tuple<pair<unsigned long long, unsigned long long>, double, JSONWrapper>> average_kernel_times(vector<vector<tuple<pair<unsigned long long, unsigned long long>, double, JSONWrapper>>> kernel_times){
+  vector<tuple<pair<unsigned long long, unsigned long long>, double, JSONWrapper>> ret;
   for (int j = 0; j<kernel_times[0].size(); j++){
     double time = 0;
     for (int i = 0; i<kernel_times.size(); i++){
@@ -604,21 +604,21 @@ std::string generate_name(std::string name, std::string range, dim3 grid, dim3 b
 }
 
 template<typename VID>
-nlohmann::json generate_json(std::string name, int g, int a, int range, dim3 grid, dim3 block, VID SM_FAC){
-  nlohmann::json information;
-  information["name"] =name;
-  information["g"] = g;
-  information["a"] = a;
-  information["b_max"] = range;
-  information["grid"] = nlohmann::json();
-  information["grid"]["x"] = grid.x;
-  information["grid"]["y"] = grid.y;
-  information["grid"]["z"] = grid.z;
-  information["block"] = nlohmann::json();
-  information["block"]["x"] = block.x;
-  information["block"]["y"] = block.y;
-  information["block"]["z"] = block.z;
-  information["sm_fac"] = SM_FAC;
+JSONWrapper generate_json(std::string name, int g, int a, int range, dim3 grid, dim3 block, VID SM_FAC){
+  JSONWrapper information;
+  information.Set("name", name);
+  information.Set("g",  g);
+  information.Set("a",  a);
+  information.Set("b_max",  range);
+  information.SetJSON("grid",  JSONWrapper());
+  information.NestedUse("grid", "x", grid.x, true);
+  information.NestedUse("grid", "y", grid.y, true);
+  information.NestedUse("grid", "z", grid.z, true);
+  information.SetJSON("block", JSONWrapper());
+  information.NestedUse("block", "x", block.x, true);
+  information.NestedUse("block", "y", block.y, true);
+  information.NestedUse("block", "z", block.z, true);
+  information.Set("sm_fac", SM_FAC);
   return information;
 }
 
@@ -687,36 +687,36 @@ std::tuple<double, double, ull> compare_jaccards(string j1_name, string j2_name,
 }
 
 template <typename IDType, typename JaccardType>
-void validate_and_write(graph<IDType, IDType> g, string method_name, JaccardType * emetrics_truth, JaccardType * emetrics_calculated,  double total_time, int num_average, std::string output_file_name, nlohmann::json& output_json, string jaccards_output_path, bool& have_correct){
+void validate_and_write(graph<IDType, IDType> g, string method_name, JaccardType * emetrics_truth, JaccardType * emetrics_calculated,  double total_time, int num_average, std::string output_file_name, JSONWrapper& output_json, string jaccards_output_path, bool& have_correct){
   write_correct(have_correct, emetrics_calculated, emetrics_truth, g.m, jaccards_output_path);
   std::tuple<double, double, unsigned long long> res;
   res = compare_jaccards(string("Ground truth"), method_name, emetrics_truth, emetrics_calculated, g.m, JaccardType(0), g.xadj, g.adj, g.is); 
   unsigned long long errors = get<2>(res);
   pretty_print_results(cout, method_name, to_string(total_time/num_average), to_string(errors));
-  output_json["experiments"][method_name] =  get_result_json(total_time/num_average, errors);
+  output_json.SetJSONNested("experiments", method_name, get_result_json(total_time/num_average, errors));
   write_json_to_file(output_file_name, output_json);
 }
 
 template <typename IDType, typename JaccardType>
-void validate_and_write_binning(graph<IDType, IDType> g, vector<tuple<pair<unsigned long long, unsigned long long>, double, nlohmann::json>> timings, string method_name, JaccardType * emetrics_truth, JaccardType * emetrics_calculated,  double total_time, int num_average, std::string output_file_name, nlohmann::json& output_json, string jaccards_output_path, bool& have_correct){
+void validate_and_write_binning(graph<IDType, IDType> g, vector<tuple<pair<unsigned long long, unsigned long long>, double, JSONWrapper>> timings, string method_name, JaccardType * emetrics_truth, JaccardType * emetrics_calculated,  double total_time, int num_average, std::string output_file_name, JSONWrapper& output_json, string jaccards_output_path, bool& have_correct){
   write_correct(have_correct, emetrics_calculated, emetrics_truth, g.m, jaccards_output_path);
   std::tuple<double, double, unsigned long long> res;
   res = compare_jaccards(string("Ground truth"), method_name, emetrics_truth, emetrics_calculated, g.m, JaccardType(0), g.xadj, g.adj, g.is); 
   unsigned long long errors = get<2>(res);
   pretty_print_results(cout, method_name, to_string(total_time/num_average), to_string(errors));
-  nlohmann::json experiment_json;
-  experiment_json["time"] = total_time/num_average;
-  experiment_json["bins"] = nlohmann::json();
+  JSONWrapper experiment_json;
+  experiment_json.Set("time", total_time/num_average);
+  experiment_json.SetJSON("bins", JSONWrapper());
   for (int i = 0; i < timings.size(); i++){
     auto timing = timings[i];
-    experiment_json["bins"][i] = nlohmann::json();
-    experiment_json["bins"][i]["size"] = nlohmann::json();
-    experiment_json["bins"][i]["size"]["first"]  = get<0>(timing).first;
-    experiment_json["bins"][i]["size"]["second"]  = get<0>(timing).second;
-    experiment_json["bins"][i]["time"]  = get<1>(timing);
-    experiment_json["bins"][i]["information"] = get<2>(timing);
+    experiment_json.SetJSONNested("bins", i, JSONWrapper());
+    experiment_json.SetJSONNested("bins", i, "size", JSONWrapper());
+    experiment_json.NestedUse("bins", i, "size", "first", get<0>(timing).first, true);
+    experiment_json.NestedUse("bins", i, "size", "second", get<0>(timing).second, true);
+    experiment_json.NestedUse("bins", i, "time", get<1>(timing), true);
+    experiment_json.SetJSONNested("bins", i, "information", get<2>(timing));
   }
-  output_json["experiments"]["binning"][method_name] = experiment_json;
+  output_json.SetJSONNested("experiments", "binning", method_name, experiment_json);
   write_json_to_file(output_file_name, output_json);
 }
 #endif

@@ -10,6 +10,7 @@
 #include <omp.h>
 
 #include "gpu_utils.cu"
+#include "json.h" 
 
 #define MINDEG 32
 #define MAXDEG 96
@@ -576,7 +577,7 @@ vector<tuple<string, pair<unsigned long long, unsigned long long>, double>> binn
 // SEP: A seperating function - that takes a vertex ID and returns a class for the vertex
 // A list of functions that will be used with each class that SEP creates
 template <bool directed, typename EN, typename VID, typename E>
-vector<tuple<pair<unsigned long long, unsigned long long>, double, nlohmann::json>> binning_based_jaccard(
+vector<tuple<pair<unsigned long long, unsigned long long>, double, JSONWrapper>> binning_based_jaccard(
   // GPU variables
   VID * is_d, EN* xadj_d, VID* adj_d, EN * tadj_d, EN * xadj_start_d, E* d_jac,
   // CPU variables
@@ -586,22 +587,22 @@ vector<tuple<pair<unsigned long long, unsigned long long>, double, nlohmann::jso
   // splitter 
   SEP_FUNC<EN, VID> sep_f, vector<EN> ranges, 
   // jaccard kernel drivers
-  vector<tuple<JAC_FUNC<directed, EN, VID, E>, dim3, dim3, VID, nlohmann::json>> jaccard_kernels){
+  vector<tuple<JAC_FUNC<directed, EN, VID, E>, dim3, dim3, VID, JSONWrapper>> jaccard_kernels){
   if (jaccard_kernels.size() == 0) throw "PASSED 0 KERNELS";
   int num_bins = jaccard_kernels.size();
   vector<EN *> bins(num_bins);
   for (int  i =0; i<num_bins; i++) bins[i] = new EN[m];
   vector<EN *> bins_d(num_bins);
   vector<pair<unsigned long long, unsigned long long>> bin_sizes(num_bins, make_pair(0,0));
-  vector<tuple<pair<unsigned long long, unsigned long long>, double, nlohmann::json>> timings;
+  vector<tuple<pair<unsigned long long, unsigned long long>, double, JSONWrapper>> timings;
   // split the vertices into their respective bins
   double start, end;
 
   start = omp_get_wtime();
   sep_f(is, xadj, adj, tadj, xadj_start, n, bins, bin_sizes, ranges);
   end = omp_get_wtime();
-  nlohmann::json binning_json;
-  binning_json["name"] = "Binning";
+  JSONWrapper binning_json;
+  binning_json.Set("name", "Binning");
   timings.push_back(make_tuple(make_pair(0,0), end-start, binning_json));
 
   start = omp_get_wtime();
@@ -610,8 +611,8 @@ vector<tuple<pair<unsigned long long, unsigned long long>, double, nlohmann::jso
     gpuErrchk( cudaMemcpy(bins_d[i], bins[i], sizeof(EN) * bin_sizes[i].first , cudaMemcpyHostToDevice) );
   }
   end = omp_get_wtime();
-  nlohmann::json alloc_json;
-  alloc_json["name"] ="Bin alloc/copy";
+  JSONWrapper alloc_json;
+  alloc_json.Set("name", "Bin alloc/copy");
   timings.push_back(make_tuple(make_pair(0,0), end-start, alloc_json));
 
   double time;
@@ -624,8 +625,8 @@ vector<tuple<pair<unsigned long long, unsigned long long>, double, nlohmann::jso
   start = omp_get_wtime();
   gpuErrchk( cudaMemcpy(h_jac, d_jac, sizeof(E) * m , cudaMemcpyDeviceToHost) );
   end = omp_get_wtime();
-  nlohmann::json copy_json;
-  copy_json["name"] ="Copy back";
+  JSONWrapper copy_json;
+  copy_json.Set("name", "Copy back");
   timings.push_back(make_tuple(make_pair(0,0), end-start, copy_json));
   for (int i =0; i<num_bins; i++) gpuErrchk( cudaFree(bins_d[i]));
   for (int i =0; i<num_bins; i++) 

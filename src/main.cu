@@ -1,4 +1,4 @@
-#include "json.hpp"
+#include "json.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -65,7 +65,7 @@ int main(int argc, char** argv) {
   cout << "Using the average of " << num_average << " runs" << endl;
 
   // Prepare output json
-  nlohmann::json output_json;
+  JSONWrapper output_json;
   // If it's already been written to, read it back, otherwise initialize it
   if (!check_file_exists(output_json_file_name)){
       output_json = initialize_output_json(input_graph_file_name);
@@ -148,7 +148,7 @@ int main(int argc, char** argv) {
   gpuErrchk( vcudaMalloc((void**)&emetrics_cuda_d, sizeof(jac_t) * (ull)g.m) );
   double alloc_copy_end = omp_get_wtime();
   double t = alloc_copy_end -alloc_copy_start; 
-  output_json["experiments"]["GPU - alloc/copy"] =  get_result_json(t, 0);
+  output_json.SetJSONNested("experiments", "GPU - alloc/copy", get_result_json(t, 0));
   write_json_to_file(output_json_file_name, output_json);
   pretty_print_results(cout, "GPU - alloc/copy" , to_string(t), to_string(0));
 
@@ -159,7 +159,7 @@ int main(int argc, char** argv) {
   alloc_copy_end = omp_get_wtime();
   t = alloc_copy_end -alloc_copy_start; 
   pretty_print_results(cout, "GPU - alloc/copy is" , to_string(t), to_string(0));
-  output_json["experiments"]["GPU - alloc/copy"] =  get_result_json(t, 0);
+  output_json.SetJSONNested("experiments", "GPU - alloc/copy", get_result_json(t, 0));
   write_json_to_file(output_json_file_name, output_json);
   if (_DIRECTED == 0){
     alloc_copy_start = omp_get_wtime();
@@ -169,7 +169,7 @@ int main(int argc, char** argv) {
     alloc_copy_end = omp_get_wtime();
     t = alloc_copy_end -alloc_copy_start; 
     pretty_print_results(cout, "GPU - alloc/copy xadj_start" , to_string(t), to_string(0));
-      output_json["experiments"]["GPU - alloc/copy xadj_start"] =  get_result_json(t, 0);
+      output_json.SetJSONNested("experiments", "GPU - alloc/copy xadj_start", get_result_json(t, 0));
       write_json_to_file(output_json_file_name, output_json);
   }
 
@@ -269,22 +269,22 @@ int main(int argc, char** argv) {
   //Each binning experiment will
   cout << "##############################" << endl << "###### Binning #####" << endl;
   gpuErrchk( cudaMemset(emetrics_cuda_d, 0, sizeof(jac_t) * g.m * 1) );
-  nlohmann::json binning_experiment_json = read_json(binning_experiment_json_file_name);
-  vector<tuple<string, vector<tuple<JAC_FUNC<_DIRECTED, vid_t, vid_t, jac_t>, dim3, dim3, vid_t, nlohmann::json>>, SEP_FUNC<vid_t, vid_t>>> all_kernels;
-  vector<tuple<JAC_FUNC<_DIRECTED, vid_t, vid_t, jac_t>, dim3, dim3, vid_t, nlohmann::json>> kernels;
+  JSONWrapper binning_experiment_json = read_json(binning_experiment_json_file_name);
+  vector<tuple<string, vector<tuple<JAC_FUNC<_DIRECTED, vid_t, vid_t, jac_t>, dim3, dim3, vid_t, JSONWrapper>>, SEP_FUNC<vid_t, vid_t>>> all_kernels;
+  vector<tuple<JAC_FUNC<_DIRECTED, vid_t, vid_t, jac_t>, dim3, dim3, vid_t, JSONWrapper>> kernels;
   string name;
-  vector<vid_t> ranges = binning_experiment_json["ranges"];//{32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144}; 
+  vector<vid_t> ranges = binning_experiment_json.Use("ranges", std::vector<vid_t>(), false);//{32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144}; 
   dim3 block(1,1,1), grid(1,1,1);
-  output_json["experiments"]["binning"] = nlohmann::json();
-  output_json["experiments"]["binning"]["ranges"] = ranges;
+  output_json.SetJSONNested("experiments", "binning", JSONWrapper());
+  output_json.NestedUse("experiments", "binning", "ranges", ranges, true);
 
 
   // for each range, add either this kernel or a fallback kernel (in case SM doesn't work etc.
 //////////////////////////////////////////////////////////////////////////
     // SMALL
   if (binning_experiment_json.contains("small-sm")){
-    vector<int> g_values = binning_experiment_json["small-sm"]["g"];
-    vector<int> a_values = binning_experiment_json["small-sm"]["a"];
+    vector<int> g_values = binning_experiment_json.NestedUse("small-sm", "g", vector<int>(), false);
+    vector<int> a_values = binning_experiment_json.NestedUse("small-sm", "a", vector<int>(), false);
     for (auto k : g_values){
       for (auto j : a_values){
         for (int i =0; i< ranges.size(); i++){
@@ -294,20 +294,20 @@ int main(int argc, char** argv) {
             int g = block.x, a = block.y*grid.x;
             int sm_fac = ranges[i]; 
             if (sm_fac*sizeof(vid_t) <= max_sm){
-              nlohmann::json information = generate_json("u-per-grid-bst-inv-sm", g, a, ranges[i], grid, block, sm_fac);
+              JSONWrapper information = generate_json("u-per-grid-bst-inv-sm", g, a, ranges[i], grid, block, sm_fac);
               kernels.push_back(make_tuple(jac_binning_gpu_u_per_grid_bst_inv_sm_driver<_DIRECTED, vid_t, vid_t, jac_t>, grid, block, sm_fac, information));
             } else {
               dim3 block(1,1,1), grid(1,1,1); 
               block.x = k; block.y = 1; block.z = 1;
               grid.x = j;
-              nlohmann::json information = generate_json("u-per-grid-bst-bigsgroup", k, j, ranges[i], grid, block, 1000);
+              JSONWrapper information = generate_json("u-per-grid-bst-bigsgroup", k, j, ranges[i], grid, block, 1000);
               kernels.push_back(make_tuple(
                     jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<_DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
             }
         }
         block.x = k; block.y = 1; block.z = 1;
         grid.x = j; 
-        nlohmann::json information = generate_json("u-per-grid-bst-bigsgroup", k, j, ranges[ranges.size()-1], grid, block, 1000);
+        JSONWrapper information = generate_json("u-per-grid-bst-bigsgroup", k, j, ranges[ranges.size()-1], grid, block, 1000);
         kernels.push_back(make_tuple(
                                         jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<_DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
         all_kernels.push_back(make_tuple("small-sm-sg"+string(1,(char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),kernels, split_vertices_by_ranges_cugraph_heur<vid_t, vid_t>));
@@ -317,8 +317,8 @@ int main(int argc, char** argv) {
   }
 /////////////////////////////////////////////////////////////////////////
   if (binning_experiment_json.contains("small")){
-    vector<int> g_values = binning_experiment_json["small"]["g"];
-    vector<int> a_values = binning_experiment_json["small"]["a"];
+    vector<int> g_values = binning_experiment_json.NestedUse("small","g", vector<int>(), false);
+    vector<int> a_values = binning_experiment_json.NestedUse("small", "a", vector<int>(), false);
     for (auto k : g_values){
       for (auto j : a_values){
         for (int i =0; i< ranges.size(); i++){
@@ -326,13 +326,13 @@ int main(int argc, char** argv) {
             block.x = k; block.y = max(1, WARP_SIZE/block.x); block.z = 1;
             grid.x = max(1, j/block.y);
             int g = block.x, a = block.y*grid.x;
-            nlohmann::json information = generate_json("u-per-grid-bst", g, a, ranges[i], grid, block, 1000);
+            JSONWrapper information = generate_json("u-per-grid-bst", g, a, ranges[i], grid, block, 1000);
             kernels.push_back(make_tuple(
                                             jac_binning_gpu_u_per_grid_bst_driver<_DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
         }
         block.x = k; block.y = 1; block.z = 1;
         grid.x = j; 
-        nlohmann::json information = generate_json("u-per-grid-bst", k, j, ranges[ranges.size()-1], grid, block, 1000);
+        JSONWrapper information = generate_json("u-per-grid-bst", k, j, ranges[ranges.size()-1], grid, block, 1000);
         kernels.push_back(make_tuple(
                                         jac_binning_gpu_u_per_grid_bst_driver<_DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
         all_kernels.push_back(make_tuple("small-nosm-sg"+string(1, (char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),kernels, split_vertices_by_ranges_cugraph_heur<vid_t, vid_t>));
@@ -343,21 +343,21 @@ int main(int argc, char** argv) {
 /////////////////////////////////////////////////////////////////////////
 // LARGE
   if (binning_experiment_json.contains("large")){
-    vector<int> g_values = binning_experiment_json["large"]["g"];
-    vector<int> a_values = binning_experiment_json["large"]["a"];
+    vector<int> g_values = binning_experiment_json.NestedUse("large", "g", vector<int>(), false);
+    vector<int> a_values = binning_experiment_json.NestedUse("large", "a", vector<int>(), false);
     for (auto k : g_values){
       for (auto j : a_values){
         for (int i =0; i< ranges.size(); i++){
             dim3 block(1,1,1), grid(1,1,1); 
             block.x = k; block.y = 1; block.z = 1;
             grid.x = j;
-            nlohmann::json information = generate_json("u-per-grid-bst-bigsgroup", k, j, ranges[i], grid, block, 1000);
+            JSONWrapper information = generate_json("u-per-grid-bst-bigsgroup", k, j, ranges[i], grid, block, 1000);
             kernels.push_back(make_tuple( 
                                             jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<_DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
         }
         block.x = k; block.y = 1; block.z = 1;
         grid.x = j; 
-        nlohmann::json information = generate_json("u-per-grid-bst-bigsgroup", k, j, ranges[ranges.size()-1], grid, block, 1000);
+        JSONWrapper information = generate_json("u-per-grid-bst-bigsgroup", k, j, ranges[ranges.size()-1], grid, block, 1000);
         kernels.push_back(make_tuple(
                                         jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<_DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
         all_kernels.push_back(make_tuple("large-nosm-sg"+string(1, (char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),kernels, split_vertices_by_ranges_cugraph_heur<vid_t, vid_t>));
@@ -367,8 +367,8 @@ int main(int argc, char** argv) {
   }
 /////////////////////////////////////////////////////////////////////////
   if (binning_experiment_json.contains("large-sm")){
-    vector<int> g_values = binning_experiment_json["large-sm"]["g"];
-    vector<int> a_values = binning_experiment_json["large-sm"]["a"];
+    vector<int> g_values = binning_experiment_json.NestedUse("large-sm", "g", vector<int>(), false);
+    vector<int> a_values = binning_experiment_json.NestedUse("large-sm","a", vector<int>(), false);
     for (auto k : g_values){
       for (auto j : a_values){
       for (int i =0; i< ranges.size(); i++){
@@ -377,20 +377,20 @@ int main(int argc, char** argv) {
           grid.x = j;
           int sm_fac = ranges[i]; 
           if (sm_fac*sizeof(vid_t)+block.x/WARP_SIZE*sizeof(vid_t) <= max_sm){
-            nlohmann::json information = generate_json("u-per-grid-bst-inv-sm-biggroup", k, j, ranges[i], grid, block, sm_fac);
+            JSONWrapper information = generate_json("u-per-grid-bst-inv-sm-biggroup", k, j, ranges[i], grid, block, sm_fac);
             kernels.push_back(make_tuple(jac_binning_gpu_u_per_grid_bst_inv_sm_bigsgroup_driver<_DIRECTED, vid_t, vid_t, jac_t>, grid, block, sm_fac, information));
           } else {
             dim3 block(1,1,1), grid(1,1,1); 
             block.x = k; block.y = 1; block.z = 1;
             grid.x = j;
-            nlohmann::json information = generate_json("u-per-grid-bst-bigsgroup", k, j, ranges[i], grid, block, 1000);
+            JSONWrapper information = generate_json("u-per-grid-bst-bigsgroup", k, j, ranges[i], grid, block, 1000);
             kernels.push_back(make_tuple(
                                              jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<_DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
           }
       }
       block.x = k; block.y = 1; block.z = 1;
       grid.x = j; 
-      nlohmann::json information = generate_json("u-per-grid-bst-bigsgroup", k, j, ranges[ranges.size()-1], grid, block, 1000);
+      JSONWrapper information = generate_json("u-per-grid-bst-bigsgroup", k, j, ranges[ranges.size()-1], grid, block, 1000);
       kernels.push_back(make_tuple( 
                                        jac_binning_gpu_u_per_grid_bst_bigsgroup_sm_driver<_DIRECTED, vid_t, vid_t, jac_t>, grid, block, 1000, information));
       all_kernels.push_back(make_tuple("large-sm-sg"+string(1, (char)((int)log2(k)+'a'))+to_string(k)+"-sa"+string(1,(char)((int)log2(j)+'a'))+to_string(j),kernels, split_vertices_by_ranges_cugraph_heur<vid_t, vid_t>));
@@ -399,8 +399,8 @@ int main(int argc, char** argv) {
   }
   }
 /////////////////////////////////////////////////////////////////////////
-  vector<tuple<pair<unsigned long long, unsigned long long>, double, nlohmann::json>> kernel_time;
-  vector<vector<tuple<pair<unsigned long long, unsigned long long>, double, nlohmann::json>>> kernel_times;
+  vector<tuple<pair<unsigned long long, unsigned long long>, double, JSONWrapper>> kernel_time;
+  vector<vector<tuple<pair<unsigned long long, unsigned long long>, double, JSONWrapper>>> kernel_times;
   for (auto kernel_splitter : all_kernels){
     total_time = 0;
     auto name = get<0>(kernel_splitter);
