@@ -1,8 +1,8 @@
-#ifndef _JSON_WRAPPER
-#define _JSON_WRAPPER
 #include "json.hpp"
 #include <iostream>
 #include <string>
+#ifndef _JSON_WRAPPER
+#define _JSON_WRAPPER
 
 class JSONWrapper {
     nlohmann::json object;
@@ -64,11 +64,11 @@ public:
     
 };
 
-    std::istream& operator>>(std::istream& in, JSONWrapper& j){
+    inline std::istream& operator>>(std::istream& in, JSONWrapper& j){
         in >> j.object;
         return in;
     }
-    std::ostream& operator<<(std::ostream& out, JSONWrapper& j){
+    inline std::ostream& operator<<(std::ostream& out, JSONWrapper& j){
         out << j.object.dump(4);
         return out;
     }

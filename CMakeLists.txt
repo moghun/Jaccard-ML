@@ -28,7 +28,8 @@ configure_file(
     "${PROJECT_BINARY_DIR}/src/config.h"
 )
 
-add_executable(jaccard src/main.cu src/edge_metrics.cu src/gpu_utils.cu)
+add_library(json_singleton OBJECT src/json.cc)
+add_executable(jaccard src/main.cu src/edge_metrics.cu src/gpu_utils.cu $<TARGET_OBJECTS:json_singleton>)
 
 find_package(OpenMP REQUIRED)
 
