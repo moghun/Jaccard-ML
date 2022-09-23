@@ -15,6 +15,18 @@ option(_DONGARRA "use dongarra" OFF)
 option(_DIRECTED "Treat graphs as directed" OFF)
 option(_BINNING "Run binning experiment" ON)
 
+set(VALS "int; float; double; long; long long; std::string; long long; unsigned long long; unsigned int; std::vector<unsigned int>; std::vector<int>" CACHE STRING "types for setters and getters")
+set(SETS "char*; char const*" CACHE STRING "Types for setters only")
+
+find_package (Python COMPONENTS Interpreter)
+list(JOIN VALS "," VALS_JOINED)
+list(JOIN SETS "," SETS_JOINED)
+execute_process(COMMAND ${Python_EXECUTABLE}
+    ${CMAKE_SOURCE_DIR}/src/generate_explicit_instantiations.py
+    --vals ${VALS_JOINED} 
+    --sets ${SETS_JOINED} 
+    --output-folder ${PROJECT_BINARY_DIR}/init)
+message(STATUS "Generated explicit instantiations")
 if (NOT ${_GPU})
 set(_SIMPLE_GPU OFF)
 set(_SIMPLE_GPU_EDGE OFF)
@@ -35,6 +47,12 @@ find_package(OpenMP REQUIRED)
 
 target_include_directories(jaccard PUBLIC
     $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/src>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+)
+
+target_include_directories(json_singleton PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/src>
+    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/init>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
 )
 
