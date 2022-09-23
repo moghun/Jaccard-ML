@@ -709,12 +709,12 @@ void validate_and_write_binning(graph<IDType, IDType> g, vector<tuple<pair<unsig
   experiment_json.SetJSON("bins", JSONWrapper());
   for (int i = 0; i < timings.size(); i++){
     auto timing = timings[i];
-    experiment_json.SetJSONNested("bins", i, JSONWrapper());
-    experiment_json.SetJSONNested("bins", i, "size", JSONWrapper());
-    experiment_json.NestedUse("bins", i, "size", "first", get<0>(timing).first, true);
-    experiment_json.NestedUse("bins", i, "size", "second", get<0>(timing).second, true);
-    experiment_json.NestedUse("bins", i, "time", get<1>(timing), true);
-    experiment_json.SetJSONNested("bins", i, "information", get<2>(timing));
+    experiment_json.SetJSONNested("bins", std::to_string(i), JSONWrapper());
+    experiment_json.SetJSONNested("bins", std::to_string(i), "size", JSONWrapper());
+    experiment_json.NestedUse("bins", std::to_string(i), "size", "first", get<0>(timing).first, true);
+    experiment_json.NestedUse("bins", std::to_string(i), "size", "second", get<0>(timing).second, true);
+    experiment_json.NestedUse("bins", std::to_string(i), "time", get<1>(timing), true);
+    experiment_json.SetJSONNested("bins", std::to_string(i), "information", get<2>(timing));
   }
   output_json.SetJSONNested("experiments", "binning", method_name, experiment_json);
   write_json_to_file(output_file_name, output_json);
