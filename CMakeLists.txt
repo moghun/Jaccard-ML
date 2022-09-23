@@ -15,18 +15,6 @@ option(_DONGARRA "use dongarra" OFF)
 option(_DIRECTED "Treat graphs as directed" OFF)
 option(_BINNING "Run binning experiment" ON)
 
-set(VALS "int; float; double; long; long long; std::string; long long; unsigned long long; unsigned int; std::vector<unsigned int>; std::vector<int>" CACHE STRING "types for setters and getters")
-set(SETS "char*; char const*" CACHE STRING "Types for setters only")
-
-find_package (Python COMPONENTS Interpreter)
-list(JOIN VALS "," VALS_JOINED)
-list(JOIN SETS "," SETS_JOINED)
-execute_process(COMMAND ${Python_EXECUTABLE}
-    ${CMAKE_SOURCE_DIR}/src/generate_explicit_instantiations.py
-    --vals ${VALS_JOINED} 
-    --sets ${SETS_JOINED} 
-    --output-folder ${PROJECT_BINARY_DIR}/init)
-message(STATUS "Generated explicit instantiations")
 if (NOT ${_GPU})
 set(_SIMPLE_GPU OFF)
 set(_SIMPLE_GPU_EDGE OFF)
@@ -40,20 +28,18 @@ configure_file(
     "${PROJECT_BINARY_DIR}/src/config.h"
 )
 
-add_library(json_singleton OBJECT src/json.cc)
-add_executable(jaccard src/main.cu src/edge_metrics.cu src/gpu_utils.cu $<TARGET_OBJECTS:json_singleton>)
+add_subdirectory(json)
+
+add_executable(jaccard src/main.cu src/edge_metrics.cu src/gpu_utils.cu)
 
 find_package(OpenMP REQUIRED)
 
 target_include_directories(jaccard PUBLIC
     $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/src>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/json/>
 )
 
-target_include_directories(json_singleton PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/src>
-    $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/init>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
-)
 
 target_link_libraries(jaccard OpenMP::OpenMP_CXX)
+target_link_libraries(jaccard json_package)
