@@ -273,18 +273,18 @@ int main(int argc, char** argv) {
   vector<tuple<string, vector<tuple<JAC_FUNC<_DIRECTED, vid_t, vid_t, jac_t>, dim3, dim3, vid_t, JSONWrapper>>, SEP_FUNC<vid_t, vid_t>>> all_kernels;
   vector<tuple<JAC_FUNC<_DIRECTED, vid_t, vid_t, jac_t>, dim3, dim3, vid_t, JSONWrapper>> kernels;
   string name;
-  vector<vid_t> ranges = binning_experiment_json.Use("ranges", std::vector<vid_t>(), false);//{32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144}; 
+  vector<vid_t> ranges = binning_experiment_json.Get<std::vector<vid_t>>("ranges");//{32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144}; 
   dim3 block(1,1,1), grid(1,1,1);
   output_json.SetJSONNested("experiments", "binning", JSONWrapper());
-  output_json.NestedUse("experiments", "binning", "ranges", ranges, true);
+  output_json.NestedSet("experiments", "binning", "ranges", ranges);
 
 
   // for each range, add either this kernel or a fallback kernel (in case SM doesn't work etc.
 //////////////////////////////////////////////////////////////////////////
     // SMALL
   if (binning_experiment_json.contains("small-sm")){
-    vector<int> g_values = binning_experiment_json.NestedUse("small-sm", "g", vector<int>(), false);
-    vector<int> a_values = binning_experiment_json.NestedUse("small-sm", "a", vector<int>(), false);
+    vector<int> g_values = binning_experiment_json.NestedGet<vector<int>>("small-sm", "g");
+    vector<int> a_values = binning_experiment_json.NestedGet<vector<int>>("small-sm", "a");
     for (auto k : g_values){
       for (auto j : a_values){
         for (int i =0; i< ranges.size(); i++){
@@ -317,8 +317,8 @@ int main(int argc, char** argv) {
   }
 /////////////////////////////////////////////////////////////////////////
   if (binning_experiment_json.contains("small")){
-    vector<int> g_values = binning_experiment_json.NestedUse("small","g", vector<int>(), false);
-    vector<int> a_values = binning_experiment_json.NestedUse("small", "a", vector<int>(), false);
+    vector<int> g_values = binning_experiment_json.NestedGet<vector<int>>("small","g");
+    vector<int> a_values = binning_experiment_json.NestedGet<vector<int>>("small", "a");
     for (auto k : g_values){
       for (auto j : a_values){
         for (int i =0; i< ranges.size(); i++){
@@ -343,8 +343,8 @@ int main(int argc, char** argv) {
 /////////////////////////////////////////////////////////////////////////
 // LARGE
   if (binning_experiment_json.contains("large")){
-    vector<int> g_values = binning_experiment_json.NestedUse("large", "g", vector<int>(), false);
-    vector<int> a_values = binning_experiment_json.NestedUse("large", "a", vector<int>(), false);
+    vector<int> g_values = binning_experiment_json.NestedGet<vector<int>>("large", "g");
+    vector<int> a_values = binning_experiment_json.NestedGet<vector<int>>("large", "a");
     for (auto k : g_values){
       for (auto j : a_values){
         for (int i =0; i< ranges.size(); i++){
@@ -367,8 +367,8 @@ int main(int argc, char** argv) {
   }
 /////////////////////////////////////////////////////////////////////////
   if (binning_experiment_json.contains("large-sm")){
-    vector<int> g_values = binning_experiment_json.NestedUse("large-sm", "g", vector<int>(), false);
-    vector<int> a_values = binning_experiment_json.NestedUse("large-sm","a", vector<int>(), false);
+    vector<int> g_values = binning_experiment_json.NestedGet<vector<int>>("large-sm", "g");
+    vector<int> a_values = binning_experiment_json.NestedGet<vector<int>>("large-sm","a");
     for (auto k : g_values){
       for (auto j : a_values){
       for (int i =0; i< ranges.size(); i++){

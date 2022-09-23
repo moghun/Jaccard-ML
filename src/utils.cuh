@@ -611,13 +611,13 @@ JSONWrapper generate_json(std::string name, int g, int a, int range, dim3 grid, 
   information.Set("a",  a);
   information.Set("b_max",  range);
   information.SetJSON("grid",  JSONWrapper());
-  information.NestedUse("grid", "x", grid.x, true);
-  information.NestedUse("grid", "y", grid.y, true);
-  information.NestedUse("grid", "z", grid.z, true);
+  information.NestedSet("grid", "x", grid.x);
+  information.NestedSet("grid", "y", grid.y);
+  information.NestedSet("grid", "z", grid.z);
   information.SetJSON("block", JSONWrapper());
-  information.NestedUse("block", "x", block.x, true);
-  information.NestedUse("block", "y", block.y, true);
-  information.NestedUse("block", "z", block.z, true);
+  information.NestedSet("block", "x", block.x);
+  information.NestedSet("block", "y", block.y);
+  information.NestedSet("block", "z", block.z);
   information.Set("sm_fac", SM_FAC);
   return information;
 }
@@ -711,9 +711,9 @@ void validate_and_write_binning(graph<IDType, IDType> g, vector<tuple<pair<unsig
     auto timing = timings[i];
     experiment_json.SetJSONNested("bins", std::to_string(i), JSONWrapper());
     experiment_json.SetJSONNested("bins", std::to_string(i), "size", JSONWrapper());
-    experiment_json.NestedUse("bins", std::to_string(i), "size", "first", get<0>(timing).first, true);
-    experiment_json.NestedUse("bins", std::to_string(i), "size", "second", get<0>(timing).second, true);
-    experiment_json.NestedUse("bins", std::to_string(i), "time", get<1>(timing), true);
+    experiment_json.NestedSet("bins", std::to_string(i), "size", "first", get<0>(timing).first);
+    experiment_json.NestedSet("bins", std::to_string(i), "size", "second", get<0>(timing).second);
+    experiment_json.NestedSet("bins", std::to_string(i), "time", get<1>(timing));
     experiment_json.SetJSONNested("bins", std::to_string(i), "information", get<2>(timing));
   }
   output_json.SetJSONNested("experiments", "binning", method_name, experiment_json);

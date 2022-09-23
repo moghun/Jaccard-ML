@@ -11,13 +11,13 @@
 #include <fstream>
 
 JSONWrapper& operator<<(JSONWrapper& j, std::pair<std::string, std::string> data){
-   j.Use(data.first, data.second, true);
+   j.Set(data.first, data.second);
    return j;
 }
 JSONWrapper get_result_json(double time, unsigned long long errors){
     JSONWrapper output;
-    output.Use("time",time, true);
-    output.Use("errors", errors, true);
+    output.Set("time",time);
+    output.Set("errors", errors);
     time_t time_obj = time;
     output.Set("timestamp", ctime(&time_obj));
     return output;
@@ -25,7 +25,7 @@ JSONWrapper get_result_json(double time, unsigned long long errors){
 
 JSONWrapper initialize_output_json(std::string graph_name){
     JSONWrapper metadata;
-    metadata.Use("graph name", graph_name, true);
+    metadata.Set("graph name", graph_name);
     JSONWrapper j;
     j.SetJSON("metadata",  metadata);
     j.SetJSON("experiments", JSONWrapper());
