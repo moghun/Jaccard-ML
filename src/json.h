@@ -5,10 +5,12 @@
 #define _JSON_WRAPPER
 
 class JSONWrapper {
+    int id;
 
-    nlohmann::json object;
 
 public:
+    JSONWrapper();
+    int GetID();
     JSONWrapper GetJSON(std::string key);
     void SetJSON(std::string key, JSONWrapper value);
     void SetJSONNested(std::string key1, std::string key2, JSONWrapper value);
@@ -36,13 +38,4 @@ public:
     friend std::ostream& operator<<(std::ostream& out, JSONWrapper& j);
     
 };
-
-    inline std::istream& operator>>(std::istream& in, JSONWrapper& j){
-        in >> j.object;
-        return in;
-    }
-    inline std::ostream& operator<<(std::ostream& out, JSONWrapper& j){
-        out << j.object.dump(4);
-        return out;
-    }
 #endif
