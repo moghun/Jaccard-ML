@@ -1,34 +1,49 @@
 #!/bin/bash
-#SBATCH -J jac_mod
+#SBATCH --partition=cuda 
+#SBATCH --account=cuda
+#SBATCH --qos=cuda
+#SBATCH --nodelist=cn04
+#SBATCH -J jaccard
 #SBATCH -N 1
 #SBATCH -n 1
-#SBATCH -c 20
-#SBATCH --partition=akya-cuda 
-##SBATCH --constraint=akya-cuda
+#SBATCH -c 8
 #SBATCH --gres=gpu:1
+#SBATCH --mem=60G
 #SBATCH --time=0-10:00:00
-#SBATCH --output=res/jaccard-%j.out
+#SBATCH --output=out/jaccard-%j.out
+##SBATCH --error=jaccard-%j.err
 
 echo "SLURM NODELIST $SLURM_NODELIST"
 echo "NUMBER OF SLURM CORES $SLURM_NTASKS"
 
 # Setup
 module purge 
-module load centos7.3/comp/cmake/3.18.0
-module load centos7.3/comp/gcc/7
-module load centos7.3/lib/cuda/10.1
+module load cuda/10.2
+module load cmake/3.16
+module load gcc-5.3.0-gcc-9.2.0-7hkwitl
 
-source /truba/home/aalabsialjundi/anaconda3/bin/activate
-conda init
-
+GRAPHS=(
+	youtube_c.graph
+        wiki-topcats_c.graph
+        com-orkut_c.graph
+        com-lj_c.graph
+        soc-LiveJournal_c.graph
+	indochina-2004_c.graph
+	wb-edu_c.graph
+	uk-2002_c.graph
+        hyperlink2012_c.graph
+        twitter_rv_c.graph
+        soc-sinaweibo_c.graph
+	com-friendster_c.graph
+       )
 # [SLURM] Job ID
 JOB_ID=${SLURM_JOB_ID}
 # Jaccard-ML code directory
-JACCARD_PATH=/truba/home/aalabsialjundi/Jaccard-ML/
+JACCARD_PATH=/cta/users/aaljundi/Jaccard-ML/
 # Graph files directory
-DATA_PATH=/truba/home/aalabsialjundi/graphs/
+DATA_PATH=/cta/users/aaljundi/graphs/uedgelist/
 # Experiment parameter file
-EXPERIMENT_PARAMS=/truba/home/aalabsialjundi/Jaccard-ML/parameters/experiment.json
+EXPERIMENT_PARAMS=${JACCARD_PATH}/parameters/experiment.json
 # Number of runs to average over
 AVG=10
 # Experiment identifier
@@ -39,33 +54,14 @@ NODE="$(echo -e "${SLURM_NODELIST}" | tr -d '[:space:]')"
 # Folder to place result JSONs
 RES_PATH=${NODE}/
 # Folder to build executable
-BUILD_FOLDER=${JACCARD_PATH}/build2
-
-        #com-amazon_c.graph
-        #com-dblp_c.graph
-GRAPHS=(
-        com-friendster_c.graph
-        com-lj_c.graph
-        com-orkut_c.graph
-        flickr_c.graph
-        hyperlink2012_c.graph
-        indochina-2004_c.graph
-        REDDIT-MULTI-12k_c.graph
-        soc-LiveJournal_c.graph
-        soc-sinaweibo_c.graph
-        twitter_rv_c.graph
-        uk-2002_c.graph
-        wb-edu_c.graph
-        wiki-topcats_c.graph
-        youtube_c.graph
-       )
+BUILD_FOLDER=${JACCARD_PATH}/build
 
 
 export OMP_NUM_THREADS=${CPU_THREADS}
 echo "Using ${CPU_THREADS} threads"
 mkdir ${BUILD_FOLDER}
 cd ${BUILD_FOLDER}
-cmake ${JACCARD_PATH} -D_CPU=OFF
+cmake ${JACCARD_PATH} -D_CPU=OFF -D CMAKE_C_COMPILER=$(which gcc) -D CMAKE_CXX_COMPILER=$(which g++)
 make
 mkdir ${RES_PATH}
 

@@ -30,6 +30,8 @@ configure_file(
 
 add_subdirectory(json)
 
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CUDA_STANDARD 11)
 add_executable(jaccard src/main.cu src/edge_metrics.cu src/gpu_utils.cu)
 
 find_package(OpenMP REQUIRED)
