@@ -6,7 +6,7 @@
 #SBATCH --partition=akya-cuda 
 ##SBATCH --constraint=akya-cuda
 #SBATCH --gres=gpu:1
-#SBATCH --time=5-00:00:00
+#SBATCH --time=0-10:00:00
 #SBATCH --output=res/jaccard-%j.out
 
 echo "SLURM NODELIST $SLURM_NODELIST"
@@ -21,10 +21,29 @@ module load centos7.3/lib/cuda/10.1
 source /truba/home/aalabsialjundi/anaconda3/bin/activate
 conda init
 
+# [SLURM] Job ID
+JOB_ID=${SLURM_JOB_ID}
+# Jaccard-ML code directory
+JACCARD_PATH=/truba/home/aalabsialjundi/Jaccard-ML/
+# Graph files directory
+DATA_PATH=/truba/home/aalabsialjundi/graphs/
+# Experiment parameter file
+EXPERIMENT_PARAMS=/truba/home/aalabsialjundi/Jaccard-ML/parameters/experiment.json
+# Number of runs to average over
+AVG=10
+# Experiment identifier
+OUTPUT_FILE=model
+CPU_THREADS=20
+# [SLURM] Hostname of node running experiment 
+NODE="$(echo -e "${SLURM_NODELIST}" | tr -d '[:space:]')"
+# Folder to place result JSONs
+RES_PATH=${NODE}/
+# Folder to build executable
+BUILD_FOLDER=${JACCARD_PATH}/build2
 
+        #com-amazon_c.graph
+        #com-dblp_c.graph
 GRAPHS=(
-        com-amazon_c.graph
-        com-dblp_c.graph
         com-friendster_c.graph
         com-lj_c.graph
         com-orkut_c.graph
@@ -41,21 +60,12 @@ GRAPHS=(
         youtube_c.graph
        )
 
-JOB_ID=${SLURM_JOB_ID}
-JACCARD_PATH=/truba/home/aalabsialjundi/Jaccard-ML/
-DATA_PATH=/truba/home/aalabsialjundi/graphs/
-EXPERIMENT_PARAMS=/truba/home/aalabsialjundi/Jaccard-ML/parameters/experiment.json
-AVG=10
-OUTPUT_FILE=model
-CPU_THREADS=20
-NODE="$(echo -e "${SLURM_NODELIST}" | tr -d '[:space:]')"
-RES_PATH=${NODE}/
-cd ${JACCARD_PATH}
+
 export OMP_NUM_THREADS=${CPU_THREADS}
 echo "Using ${CPU_THREADS} threads"
-mkdir build
-cd build
-cmake .. -D_CPU=OFF
+mkdir ${BUILD_FOLDER}
+cd ${BUILD_FOLDER}
+cmake ${JACCARD_PATH} -D_CPU=OFF
 make
 mkdir ${RES_PATH}
 
