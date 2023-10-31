@@ -924,7 +924,7 @@ __global__ void edge_based_on_host(const VID* __restrict__ is, const EN* __restr
           intersection_size++;
 
           // (float)(xadj[u_ngh + 1] - xadj[u_ngh])) --> calculates the degree of current neighbour node
-          float aa_ar_val = (float)(xadj[u_ngh + 1] - xadj[u_ngh])
+          float aa_ar_val = (float)(xadj[u_ngh + 1] - xadj[u_ngh]);
           intersection_size_adamic_adar += 1.0 / __logf(aa_ar_val); //for every intersection
           intersection_size_resource_allocation += 1.0 / aa_ar_val;
 
