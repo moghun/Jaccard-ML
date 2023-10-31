@@ -145,7 +145,10 @@ int main(int argc, char** argv) {
   gpuErrchk( cudaMemcpy(g_d.adj, g.adj, sizeof(vid_t) * g.m, cudaMemcpyHostToDevice) );
   jac_t* emetrics_cuda = new jac_t[(ull)g.m], *emetrics_cuda_d;
   cout << "GPU: allocating emetrics\n";
-  gpuErrchk( vcudaMalloc((void**)&emetrics_cuda_d, sizeof(jac_t) * (ull)g.m) );
+  gpuErrchk( vcudaMalloc((void**)&emetrics_cuda_d, sizeof(jac_t) * (ull)(g.m)) );
+  gpuErrchk( vcudaMalloc((void**)&emetrics_cuda_r, sizeof(jac_t) * (ull)(g.m*7)) );
+  gpuErrchk( vcudaMalloc((void**)&emetrics_cuda_k, sizeof(jac_t) * (ull)(g.m*3)) );
+
   double alloc_copy_end = omp_get_wtime();
   double t = alloc_copy_end -alloc_copy_start; 
   output_json.SetJSONNested("experiments", "GPU - alloc/copy", get_result_json(t, 0));
@@ -197,8 +200,7 @@ int main(int argc, char** argv) {
  
 #ifdef _SIMPLE_GPU
   //Compute edge-based metrics cuda
-  jac_t* emetrics_cuda_r = new jac_t[(ull)(g.m*7)];
-  gpuErrchk( cudaMemset(emetrics_cuda_r, 0, sizeof(jac_t) * g.m*7) );
+  gpuErrchk( cudaMemset(emetrics_cuda_r, 0, (sizeof(jac_t) * g.m * 7)) );
   total_time = 0;
   for (int i = 0; i< num_average; i++){
     start = omp_get_wtime();
@@ -212,8 +214,7 @@ int main(int argc, char** argv) {
   validate_and_write(g,  "GPU - Compute on Device", emetrics, emetrics_cuda, total_time, num_average, output_json_file_name, output_json, jaccards_output_path, have_correct);
   
 
-  jac_t* emetrics_cuda_k = new jac_t[(ull)(g.m*3)];
-  gpuErrchk( cudaMemset(emetrics_cuda_d, 0, sizeof(jac_t) * g.m*3) );
+  gpuErrchk( cudaMemset(emetrics_cuda_k, 0, (sizeof(jac_t) * g.m*3)) );
   total_time = 0;
   for (int i = 0; i< num_average; i++){
     start = omp_get_wtime();
