@@ -209,7 +209,7 @@ int main(int argc, char** argv) {
     total_time+=end-start;
   }
 // if no CPU runs are happening, set the reference jaccard values (for error checking) to be this kernel's
-  validate_and_write(g,  "GPU - Thread per u", emetrics, emetrics_cuda, total_time, num_average, output_json_file_name, output_json, jaccards_output_path, have_correct);
+  validate_and_write(g,  "GPU - Compute on Device", emetrics, emetrics_cuda, total_time, num_average, output_json_file_name, output_json, jaccards_output_path, have_correct);
   
 
   jac_t* emetrics_cuda_k = new jac_t[(ull)(g.m*3)];
@@ -224,7 +224,7 @@ int main(int argc, char** argv) {
     total_time+=end-start;
   }
 // if no CPU runs are happening, set the reference jaccard values (for error checking) to be this kernel's
-  validate_and_write(g,  "GPU - Thread per u", emetrics, emetrics_cuda, total_time, num_average, output_json_file_name, output_json, jaccards_output_path, have_correct);
+  validate_and_write(g,  "GPU - Compute on Host", emetrics, emetrics_cuda, total_time, num_average, output_json_file_name, output_json, jaccards_output_path, have_correct);
 #endif
 
 #ifdef _DONGARRA
