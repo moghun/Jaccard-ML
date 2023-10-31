@@ -219,7 +219,7 @@ int main(int argc, char** argv) {
     start = omp_get_wtime();
     edge_based_on_device<_DIRECTED, vid_t, vid_t, jac_t><<<NUM_BLOCKS, NUM_THREADS>>>(g_d.is, g_d.xadj, g_d.adj, g.n, emetrics_cuda_d, 1);
     gpuErrchk( cudaDeviceSynchronize() );
-    gpuErrchk( cudaMemcpy(emetrics_cud_k, emetrics_cuda_d, (ull)sizeof(jac_t) * g.m * 3, cudaMemcpyDeviceToHost) );
+    gpuErrchk( cudaMemcpy(emetrics_cuda_k, emetrics_cuda_d, (ull)sizeof(jac_t) * g.m * 3, cudaMemcpyDeviceToHost) );
     end = omp_get_wtime();
     total_time+=end-start;
   }
