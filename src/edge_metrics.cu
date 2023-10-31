@@ -958,7 +958,7 @@ __global__ void edge_based_on_device(const VID* __restrict__ is, const EN* __res
     if (directed)
       other_ptr = bst(xadj, adj, v, u);
 
-    if (!directed && u < v) || (directed && (other_ptr == (EN)-1 || (other_ptr != (EN)-1 && u < v))) {
+    if ((!directed && u < v) || (directed && (other_ptr == (EN)-1 || (other_ptr != (EN)-1 && u < v)))) {
       EN intersection_size = 0;
       EN intersection_size_adamic_adar = 0;
       EN intersection_size_resource_allocation = 0;
@@ -978,7 +978,7 @@ __global__ void edge_based_on_device(const VID* __restrict__ is, const EN* __res
           intersection_size++;
 
           // (float)(xadj[u_ngh + 1] - xadj[u_ngh])) --> calculates the degree of current neighbour node
-          aa_ar_val = (float)(xadj[u_ngh + 1] - xadj[u_ngh])
+          int aa_ar_val = (float)(xadj[u_ngh + 1] - xadj[u_ngh]);
           intersection_size_adamic_adar += 1.0 / log(aa_ar_val); //for every intersection
           intersection_size_resource_allocation += 1.0 / aa_ar_val;
 
