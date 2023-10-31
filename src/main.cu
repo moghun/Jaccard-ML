@@ -198,7 +198,7 @@ int main(int argc, char** argv) {
 #ifdef _SIMPLE_GPU
   //Compute edge-based metrics cuda
   jac_t* emetrics_cuda_r = new jac_t[(ull)(g.m*7)];
-  gpuErrchk( cudaMemset(emetrics_cuda_r, 0, sizeof(jac_t) * g.m) * 7 );
+  gpuErrchk( cudaMemset(emetrics_cuda_r, 0, sizeof(jac_t) * g.m*7) );
   total_time = 0;
   for (int i = 0; i< num_average; i++){
     start = omp_get_wtime();
@@ -213,7 +213,7 @@ int main(int argc, char** argv) {
   
 
   jac_t* emetrics_cuda_k = new jac_t[(ull)(g.m*3)];
-  gpuErrchk( cudaMemset(emetrics_cuda_d, 0, sizeof(jac_t) * g.m) * 3 );
+  gpuErrchk( cudaMemset(emetrics_cuda_d, 0, sizeof(jac_t) * g.m*3) );
   total_time = 0;
   for (int i = 0; i< num_average; i++){
     start = omp_get_wtime();
