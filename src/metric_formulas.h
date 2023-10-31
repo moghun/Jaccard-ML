@@ -42,7 +42,7 @@
 }
 
 #define CALC_SL { \
-  E SL = float(intersection_size) / sqrt((xadj[u + 1] - xadj[u]) * (xadj[v + 1] - xadj[v])); \
+  E SL = float(intersection_size) / rsqrtf((xadj[u + 1] - xadj[u]) * (xadj[v + 1] - xadj[v])); \
   emetrics[ptr + 4] = SL; \
   if (other_ptr != (EN)-1) { \
     emetrics[other_ptr + 4] = SL; \
