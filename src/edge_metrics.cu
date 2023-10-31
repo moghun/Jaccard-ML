@@ -10,6 +10,8 @@
 #include <omp.h>
 
 #include "gpu_utils.cu"
+
+#include "metric_formulas.h"
 #define MINDEGG 32
 #define MAXDEGG 96
 #define CUDA_MAX_BLOCKS 65535
@@ -886,6 +888,123 @@ __global__ void edge_based_metrics_cuda_large(const VID* __restrict__ is, const 
     }    
   }
 }
+
+template <bool directed, typename EN, typename VID, typename E>
+__global__ void edge_based_on_host(const VID* __restrict__ is, const EN* __restrict__ xadj, const VID* __restrict__ adj, VID n,
+    E* __restrict__ emetrics, VID no_emetrics) {
+
+  int no_threads = blockDim.x * gridDim.x;
+  int tid = blockDim.x * blockIdx.x + threadIdx.x;
+  EN m = xadj[n];
+
+  for (EN ptr = tid; ptr < m; ptr += no_threads) {
+    VID u = is[ptr];
+    VID v = adj[ptr];
+    EN other_ptr;
+    if (directed)
+      other_ptr = bst(xadj, adj, v, u);
+
+    if (!directed && u < v) || (directed && (other_ptr == (EN)-1 || (other_ptr != (EN)-1 && u < v))) {
+      EN intersection_size = 0;
+      EN intersection_size_adamic_adar = 0;
+      EN intersection_size_resource_allocation = 0;
+
+      EN ptr_u = xadj[u];
+      EN ptr_v = xadj[v];
+
+      while (ptr_u < xadj[u + 1] && ptr_v < xadj[v + 1]) {
+        VID u_ngh = adj[ptr_u];
+        VID v_ngh = adj[ptr_v];
+
+        if (v_ngh == u) {
+          other_ptr = ptr_v;
+        }
+
+        if (u_ngh == v_ngh) {
+          intersection_size++;
+
+          // (float)(xadj[u_ngh + 1] - xadj[u_ngh])) --> calculates the degree of current neighbour node
+          aa_ar_val = (float)(xadj[u_ngh + 1] - xadj[u_ngh])
+          intersection_size_adamic_adar += 1.0 / log(aa_ar_val); //for every intersection
+          intersection_size_resource_allocation += 1.0 / aa_ar_val;
+
+          ptr_u++;
+          ptr_v++;
+        } else if (u_ngh < v_ngh) {
+          ptr_u++;
+        } else {
+          ptr_v++;
+        }
+      }
+      SET_INTERSECTION;
+      SET_AA;
+      SET_RA;
+    }
+  }
+}
+
+template <bool directed, typename EN, typename VID, typename E>
+__global__ void edge_based_on_device(const VID* __restrict__ is, const EN* __restrict__ xadj, const VID* __restrict__ adj, VID n,
+    E* __restrict__ emetrics, VID no_emetrics) {
+
+  int no_threads = blockDim.x * gridDim.x;
+  int tid = blockDim.x * blockIdx.x + threadIdx.x;
+  EN m = xadj[n];
+
+  for (EN ptr = tid; ptr < m; ptr += no_threads) {
+    VID u = is[ptr];
+    VID v = adj[ptr];
+    EN other_ptr;
+    if (directed)
+      other_ptr = bst(xadj, adj, v, u);
+
+    if (!directed && u < v) || (directed && (other_ptr == (EN)-1 || (other_ptr != (EN)-1 && u < v))) {
+      EN intersection_size = 0;
+      EN intersection_size_adamic_adar = 0;
+      EN intersection_size_resource_allocation = 0;
+
+      EN ptr_u = xadj[u];
+      EN ptr_v = xadj[v];
+
+      while (ptr_u < xadj[u + 1] && ptr_v < xadj[v + 1]) {
+        VID u_ngh = adj[ptr_u];
+        VID v_ngh = adj[ptr_v];
+
+        if (v_ngh == u) {
+          other_ptr = ptr_v;
+        }
+
+        if (u_ngh == v_ngh) {
+          intersection_size++;
+
+          // (float)(xadj[u_ngh + 1] - xadj[u_ngh])) --> calculates the degree of current neighbour node
+          aa_ar_val = (float)(xadj[u_ngh + 1] - xadj[u_ngh])
+          intersection_size_adamic_adar += 1.0 / log(aa_ar_val); //for every intersection
+          intersection_size_resource_allocation += 1.0 / aa_ar_val;
+
+          ptr_u++;
+          ptr_v++;
+        } else if (u_ngh < v_ngh) {
+          ptr_u++;
+        } else {
+          ptr_v++;
+        }
+      }
+
+      CALC_JAC;
+      CALC_AA;
+      CALC_RA;
+      CALC_CN;
+      CALC_PA;
+      CALC_SL;
+      CALC_SI;
+    }
+  }
+}
+
+
+
+
 #undef MAXDEGG
 #undef MINDEGG
 #endif

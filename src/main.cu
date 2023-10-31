@@ -197,13 +197,29 @@ int main(int argc, char** argv) {
  
 #ifdef _SIMPLE_GPU
   //Compute edge-based metrics cuda
-  gpuErrchk( cudaMemset(emetrics_cuda_d, 0, sizeof(jac_t) * g.m) );
+  jac_t* emetrics_cuda_r = new jac_t[(ull)(g.m*7)];
+  gpuErrchk( cudaMemset(emetrics_cuda_r, 0, sizeof(jac_t) * g.m) * 7 );
   total_time = 0;
   for (int i = 0; i< num_average; i++){
     start = omp_get_wtime();
-    edge_based_metrics_cuda<true, vid_t, vid_t, jac_t><<<NUM_BLOCKS, NUM_THREADS>>>(g_d.is, g_d.xadj, g_d.adj, g.n, emetrics_cuda_d, 1);
+    edge_based_on_device<_DIRECTED, vid_t, vid_t, jac_t><<<NUM_BLOCKS, NUM_THREADS>>>(g_d.is, g_d.xadj, g_d.adj, g.n, emetrics_cuda_d, 1);
     gpuErrchk( cudaDeviceSynchronize() );
-    gpuErrchk( cudaMemcpy(emetrics_cuda, emetrics_cuda_d, (ull)sizeof(jac_t) * g.m * 1, cudaMemcpyDeviceToHost) );
+    gpuErrchk( cudaMemcpy(emetrics_cuda_r, emetrics_cuda_d, (ull)sizeof(jac_t) * g.m * 7, cudaMemcpyDeviceToHost) );
+    end = omp_get_wtime();
+    total_time+=end-start;
+  }
+// if no CPU runs are happening, set the reference jaccard values (for error checking) to be this kernel's
+  validate_and_write(g,  "GPU - Thread per u", emetrics, emetrics_cuda, total_time, num_average, output_json_file_name, output_json, jaccards_output_path, have_correct);
+  
+
+  jac_t* emetrics_cuda_k = new jac_t[(ull)(g.m*3)];
+  gpuErrchk( cudaMemset(emetrics_cuda_d, 0, sizeof(jac_t) * g.m) * 3 );
+  total_time = 0;
+  for (int i = 0; i< num_average; i++){
+    start = omp_get_wtime();
+    edge_based_on_device<_DIRECTED, vid_t, vid_t, jac_t><<<NUM_BLOCKS, NUM_THREADS>>>(g_d.is, g_d.xadj, g_d.adj, g.n, emetrics_cuda_d, 1);
+    gpuErrchk( cudaDeviceSynchronize() );
+    gpuErrchk( cudaMemcpy(emetrics_cud_k, emetrics_cuda_d, (ull)sizeof(jac_t) * g.m * 3, cudaMemcpyDeviceToHost) );
     end = omp_get_wtime();
     total_time+=end-start;
   }
