@@ -143,7 +143,7 @@ int main(int argc, char** argv) {
   cout << "GPU: allocating adj\n";
   gpuErrchk( vcudaMalloc((void**)&g_d.adj, sizeof(vid_t) * g.m ) );
   gpuErrchk( cudaMemcpy(g_d.adj, g.adj, sizeof(vid_t) * g.m, cudaMemcpyHostToDevice) );
-  jac_t* emetrics_cuda = new jac_t[(ull)g.m], *emetrics_cuda_d;
+  jac_t* emetrics_cuda = new jac_t[(ull)g.m], *emetrics_cuda_d, *emetrics_cuda_r, *emetrics_cuda_k;
   cout << "GPU: allocating emetrics\n";
   gpuErrchk( vcudaMalloc((void**)&emetrics_cuda_d, sizeof(jac_t) * (ull)(g.m)) );
   gpuErrchk( vcudaMalloc((void**)&emetrics_cuda_r, sizeof(jac_t) * (ull)(g.m*7)) );
