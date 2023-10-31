@@ -979,7 +979,7 @@ __global__ void edge_based_on_device(const VID* __restrict__ is, const EN* __res
 
           // (float)(xadj[u_ngh + 1] - xadj[u_ngh])) --> calculates the degree of current neighbour node
           int aa_ar_val = (float)(xadj[u_ngh + 1] - xadj[u_ngh]);
-          intersection_size_adamic_adar += 1.0 / log(aa_ar_val); //for every intersection
+          intersection_size_adamic_adar += 1.0 / _logf(aa_ar_val); //for every intersection
           intersection_size_resource_allocation += 1.0 / aa_ar_val;
 
           ptr_u++;
