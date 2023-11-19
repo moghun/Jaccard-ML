@@ -200,7 +200,7 @@ int main(int argc, char** argv) {
  
 #ifdef _SIMPLE_GPU
   //Compute edge-based metrics cuda
-  gpuErrchk( cudaMemset(emetrics_cuda_r, 0, (sizeof(jac_t) * g.m * 7)) );
+  gpuErrchk( cudaMemset(emetrics_cuda_r, 0, (sizeof(jac_t) * g.m*3)) );
   total_time = 0;
   for (int i = 0; i< num_average; i++){
     start = omp_get_wtime();
@@ -218,7 +218,7 @@ int main(int argc, char** argv) {
   total_time = 0;
   for (int i = 0; i< num_average; i++){
     start = omp_get_wtime();
-    edge_based_on_device<_DIRECTED, vid_t, vid_t, jac_t><<<NUM_BLOCKS, NUM_THREADS>>>(g_d.is, g_d.xadj, g_d.adj, g.n, emetrics_cuda_d, 1);
+    edge_based_on_host<_DIRECTED, vid_t, vid_t, jac_t><<<NUM_BLOCKS, NUM_THREADS>>>(g_d.is, g_d.xadj, g_d.adj, g.n, emetrics_cuda_d, 1);
     gpuErrchk( cudaDeviceSynchronize() );
     gpuErrchk( cudaMemcpy(emetrics_cuda_k, emetrics_cuda_d, (ull)sizeof(jac_t) * g.m, cudaMemcpyDeviceToHost) );
     end = omp_get_wtime();
@@ -245,7 +245,7 @@ int main(int argc, char** argv) {
   for (auto dongarra_threads : dongarra_num_threads){
     total_time = 0;
     for (int i = 0; i< num_average; i++){
-      gpuErrchk( cudaMemset(emetrics_cuda_d, 0, sizeof(jac_t) * g.m * 1) );
+      gpuErrchk( cudaMemset(emetrics_cuda_d, 0, sizeof(jac_t) * g.m ) );
       start = omp_get_wtime();
       int my_no_blocks = g.m/dongarra_threads+(g.m%NUM_THREADS!=0);
       dim3 grid(my_no_blocks, 1,1);
@@ -266,7 +266,7 @@ int main(int argc, char** argv) {
   //cugraph::GraphCSRView<vid_t, vid_t, jac_t> cuCSR (xadj_d, adj_d, nullptr, g.n, g.m); 
   total_time = 0;
   for (int i = 0; i< num_average; i++){
-    gpuErrchk( cudaMemset(emetrics_cuda_d, 0, sizeof(jac_t) * g.m * 1) );
+    gpuErrchk( cudaMemset(emetrics_cuda_d, 0, sizeof(jac_t) * g.m ) );
     start = omp_get_wtime();
     #ifdef _INHOUSE_CUGRAPH
     inhouse_cugraph::cugraph_jaccard<false, vid_t, vid_t, float>(g_d.is, g_d.xadj, g_d.adj, g.n, g.m, emetrics_cuda_d);
@@ -285,7 +285,7 @@ int main(int argc, char** argv) {
 #ifdef _BINNING
   //Each binning experiment will
   cout << "##############################" << endl << "###### Binning #####" << endl;
-  gpuErrchk( cudaMemset(emetrics_cuda_d, 0, sizeof(jac_t) * g.m * 1) );
+  gpuErrchk( cudaMemset(emetrics_cuda_d, 0, sizeof(jac_t) * g.m ) );
   JSONWrapper binning_experiment_json = read_json(binning_experiment_json_file_name);
   vector<tuple<string, vector<tuple<JAC_FUNC<_DIRECTED, vid_t, vid_t, jac_t>, dim3, dim3, vid_t, JSONWrapper>>, SEP_FUNC<vid_t, vid_t>>> all_kernels;
   vector<tuple<JAC_FUNC<_DIRECTED, vid_t, vid_t, jac_t>, dim3, dim3, vid_t, JSONWrapper>> kernels;
